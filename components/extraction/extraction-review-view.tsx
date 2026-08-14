@@ -357,6 +357,38 @@ function Stat({ label, value }: { label: string; value: number }) {
   );
 }
 
+async function readApiJson(res: Response): Promise<{
+  error?: string;
+  job?: { id: string };
+  storagePath?: string;
+  token?: string;
+  signedUrl?: string;
+}> {
+  const text = await res.text();
+  try {
+    return JSON.parse(text) as {
+      error?: string;
+      job?: { id: string };
+      storagePath?: string;
+      token?: string;
+      signedUrl?: string;
+    };
+  } catch {
+    const snippet = text.replace(/\s+/g, " ").slice(0, 160);
+    // Vercel returns plain text "Request Entity Too Large" when body > ~4.5MB
+    if (/entity too large|payload.?too.?large|413/i.test(snippet)) {
+      throw new Error(
+        "파일이 너무 큽니다. Vercel은 서버로 직접 올리는 요청을 약 4.5MB로 제한합니다. Storage 업로드로 다시 시도하세요.",
+      );
+    }
+    throw new Error(
+      snippet
+        ? `서버 응답을 읽지 못했습니다: ${snippet}`
+        : `요청 실패 (${res.status})`,
+    );
+  }
+}
+
 export function ExtractionCreateForm() {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -395,19 +427,47 @@ export function ExtractionCreateForm() {
           setError(null);
           startTransition(async () => {
             try {
-              const form = new FormData();
-              form.append("file", file);
-              form.append("toc_section", tocSection);
+              // 1) Signed URL (JSON only) — avoids Vercel 4.5MB body cap
+              const prepRes = await fetch("/api/extraction/prepare", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  filename: file.name,
+                  byteLength: file.size,
+                }),
+              });
+              const prep = await readApiJson(prepRes);
+              if (!prepRes.ok || !prep.storagePath || !prep.token) {
+                throw new Error(prep.error ?? `업로드 준비 실패 (${prepRes.status})`);
+              }
+
+              // 2) Browser → Supabase Storage (file never goes through Vercel)
+              const { createSupabaseBrowserClient } = await import(
+                "@/lib/supabase/client"
+              );
+              const supabase = createSupabaseBrowserClient();
+              const { error: upErr } = await supabase.storage
+                .from("reports")
+                .uploadToSignedUrl(prep.storagePath, prep.token, file, {
+                  contentType: "application/pdf",
+                });
+              if (upErr) {
+                throw new Error(upErr.message || "Storage 업로드 실패");
+              }
+
+              // 3) Extract from Storage path (small JSON body)
               const res = await fetch("/api/extraction", {
                 method: "POST",
-                body: form,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  storage_path: prep.storagePath,
+                  filename: file.name,
+                  toc_section: tocSection,
+                }),
               });
-              const data = (await res.json()) as {
-                error?: string;
-                job?: { id: string };
-              };
+              const data = await readApiJson(res);
               if (!res.ok || !data.job?.id) {
-                throw new Error(data.error ?? `업로드 실패 (${res.status})`);
+                throw new Error(data.error ?? `추출 실패 (${res.status})`);
               }
               router.push(`/extraction/${data.job.id}`);
             } catch (e) {
@@ -420,9 +480,9 @@ export function ExtractionCreateForm() {
       </Button>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <p className="text-xs text-muted-foreground">
-        PDF 목차 구간을 소제목 단위로 나눈 뒤, 구간마다 Content Block 후보를
-        만듭니다(합치지 않음). 본문은 전문 보존, 표는 Markdown, 이미지는
-        제외됩니다.
+        PDF는 Supabase Storage로 직접 업로드된 뒤 추출됩니다(Vercel 요청 크기
+        제한 회피). 목차 구간을 소제목 단위로 나눈 뒤 Content Block 후보를
+        만듭니다. 본문은 전문 보존, 표는 Markdown, 이미지는 제외됩니다.
       </p>
     </div>
   );

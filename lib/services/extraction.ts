@@ -392,10 +392,69 @@ function toDbCandidates(
   }));
 }
 
+/**
+ * Create a short-lived signed upload URL so the browser can PUT the PDF
+ * straight to Supabase Storage (bypasses Vercel's 4.5MB function body limit).
+ */
+export async function prepareReportUpload(input: {
+  filename: string;
+  byteLength: number;
+}) {
+  const user = await getSessionUser();
+  if (!canManageExtraction(user.role)) {
+    throw new Error("컨설턴트(ADMIN)만 Extraction Job을 생성할 수 있습니다.");
+  }
+  if (!input.filename.toLowerCase().endsWith(".pdf")) {
+    throw new Error("PDF 파일만 업로드할 수 있습니다.");
+  }
+  if (input.byteLength <= 0) throw new Error("빈 파일입니다.");
+  if (input.byteLength > 50 * 1024 * 1024) {
+    throw new Error("PDF는 50MB 이하여야 합니다.");
+  }
+  if (!isSupabaseConfigured()) {
+    throw new Error(
+      "Supabase Storage가 필요합니다. NEXT_PUBLIC_SUPABASE_URL / keys를 확인하세요.",
+    );
+  }
+
+  const workspace = await getActiveWorkspace();
+  const uploadId = newId();
+  const safeName = input.filename.replace(/[^\w.\-()가-힣\s]/g, "_");
+  const storagePath = `${workspace.company.id}/${workspace.project.id}/${uploadId}/${safeName}`;
+
+  const admin = createSupabaseAdminClient();
+  const { error: bucketErr } = await admin.storage.createBucket("reports", {
+    public: false,
+    fileSizeLimit: 52428800,
+    allowedMimeTypes: ["application/pdf"],
+  });
+  if (bucketErr && !/already exists|duplicate/i.test(bucketErr.message)) {
+    // Bucket may already exist — ignore; other errors still surface on signed URL.
+  }
+
+  const { data, error } = await admin.storage
+    .from("reports")
+    .createSignedUploadUrl(storagePath);
+  if (error || !data) {
+    throw new Error(
+      error?.message ??
+        "업로드 URL을 만들지 못했습니다. reports 버킷을 확인하세요.",
+    );
+  }
+
+  return {
+    storagePath: data.path,
+    token: data.token,
+    signedUrl: data.signedUrl,
+  };
+}
+
 export async function createExtractionJobFromUpload(input: {
   filename: string;
   toc_section: string;
-  /** Raw PDF bytes (preferred) or base64 string */
+  /** Prefer: PDF already uploaded to Storage (Vercel-safe). */
+  storage_path?: string;
+  /** Raw PDF bytes (local / small uploads only — Vercel caps at ~4.5MB). */
   file_bytes?: Uint8Array | Buffer;
   /** @deprecated prefer file_bytes — kept for compatibility */
   file_base64?: string;
@@ -414,10 +473,29 @@ export async function createExtractionJobFromUpload(input: {
   const workspace = await getActiveWorkspace();
   const ts = touch();
   const jobId = newId();
-  const storagePath = `${workspace.company.id}/${workspace.project.id}/${jobId}/${input.filename}`;
+  let storagePath =
+    input.storage_path?.trim() ||
+    `${workspace.company.id}/${workspace.project.id}/${jobId}/${input.filename}`;
 
   let buffer: Buffer;
-  if (input.file_bytes) {
+  let alreadyInStorage = Boolean(input.storage_path?.trim());
+
+  if (alreadyInStorage) {
+    if (!isSupabaseConfigured()) {
+      throw new Error("Supabase가 설정되지 않아 Storage PDF를 읽을 수 없습니다.");
+    }
+    const admin = createSupabaseAdminClient();
+    const { data, error } = await admin.storage
+      .from("reports")
+      .download(storagePath);
+    if (error || !data) {
+      throw new Error(
+        error?.message ??
+          "Storage에서 PDF를 받지 못했습니다. 업로드 후 다시 시도하세요.",
+      );
+    }
+    buffer = Buffer.from(await data.arrayBuffer());
+  } else if (input.file_bytes) {
     buffer = Buffer.isBuffer(input.file_bytes)
       ? input.file_bytes
       : Buffer.from(input.file_bytes);
@@ -449,13 +527,15 @@ export async function createExtractionJobFromUpload(input: {
 
   if (isSupabaseConfigured()) {
     const admin = createSupabaseAdminClient();
-    try {
-      await admin.storage.from("reports").upload(storagePath, buffer, {
-        contentType: "application/pdf",
-        upsert: true,
-      });
-    } catch {
-      // Bucket may be missing; continue with in-memory bytes
+    if (!alreadyInStorage) {
+      try {
+        await admin.storage.from("reports").upload(storagePath, buffer, {
+          contentType: "application/pdf",
+          upsert: true,
+        });
+      } catch {
+        // Bucket may be missing; continue with in-memory bytes
+      }
     }
     const { error: jErr } = await admin.from("extraction_jobs").insert(job);
     if (jErr) {
