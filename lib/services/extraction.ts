@@ -431,10 +431,8 @@ export async function createExtractionJobFromUpload(input: {
     throw new Error("PDF는 50MB 이하여야 합니다.");
   }
 
-  const arrayBuffer = buffer.buffer.slice(
-    buffer.byteOffset,
-    buffer.byteOffset + buffer.byteLength,
-  );
+  // Copy into a real ArrayBuffer (Node Buffer.buffer may be SharedArrayBuffer-typed).
+  const arrayBuffer = Uint8Array.from(buffer).buffer;
 
   const job = {
     id: jobId,

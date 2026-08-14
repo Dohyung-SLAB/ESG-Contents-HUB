@@ -50,8 +50,11 @@ export type ExtractionSliceDiagnostics = {
   hasCasePattern: boolean;
 };
 
-export async function extractPdfPages(buffer: ArrayBuffer): Promise<PdfPage[]> {
-  const pdf = await getDocumentProxy(new Uint8Array(buffer));
+export async function extractPdfPages(
+  buffer: ArrayBuffer | Uint8Array,
+): Promise<PdfPage[]> {
+  const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+  const pdf = await getDocumentProxy(bytes);
   const { totalPages, text } = await extractText(pdf, { mergePages: false });
   const pages: PdfPage[] = [];
   for (let i = 0; i < totalPages; i++) {
