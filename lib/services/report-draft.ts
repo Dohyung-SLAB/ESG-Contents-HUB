@@ -17,6 +17,7 @@ import {
   getActiveWorkspace,
   listIssuesForActiveProject,
 } from "@/lib/services/projects";
+import { toStorageObjectName } from "@/lib/storage-key";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type {
@@ -251,7 +252,7 @@ export async function createReportDraftDownload(options?: {
   const model = await buildReportDraftModel(options);
   const buffer = await generateReportDocx(model);
   const filename = `${model.companyName}_${model.reportingYear}_report_draft.docx`;
-  const safeFile = filename.replace(/[^\w.\-()가-힣\s]/g, "_");
+  const safeFile = toStorageObjectName(filename);
 
   if (!isSupabaseConfigured()) {
     throw new Error(

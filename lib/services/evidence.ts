@@ -6,6 +6,7 @@ import {
 import { getSessionUser } from "@/lib/data/session";
 import { writeAuditLog } from "@/lib/services/audit";
 import { getActiveWorkspace } from "@/lib/services/projects";
+import { toStorageObjectName } from "@/lib/storage-key";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { EvidenceRelationshipType } from "@/types/enums";
@@ -130,7 +131,7 @@ export async function prepareEvidenceUpload(input: {
 
   const workspace = await getActiveWorkspace();
   const evidenceId = newId();
-  const safeName = input.filename.replace(/[^\w.\-()가-힣\s]/g, "_");
+  const safeName = toStorageObjectName(input.filename);
   const storagePath = `${workspace.company.id}/${evidenceId}/${safeName}`;
 
   const { error: bucketErr } = await admin.storage.createBucket("evidences", {
