@@ -1,3 +1,4 @@
+import { newId } from "@/lib/data/ids";
 import {
   Document,
   HeadingLevel,
@@ -238,6 +239,64 @@ export async function generateReportDocx(
     sections: [{ children }],
   });
   return Buffer.from(await Packer.toBuffer(doc));
+}
+
+/**
+ * Build DOCX on the server, upload to Storage, return a short-lived signed URL.
+ * Avoids returning multi-MB binaries through the Vercel Function response body.
+ */
+export async function createReportDraftDownload(options?: {
+  approvedOnly?: boolean;
+}): Promise<{ filename: string; downloadUrl: string; storagePath: string }> {
+  const model = await buildReportDraftModel(options);
+  const buffer = await generateReportDocx(model);
+  const filename = `${model.companyName}_${model.reportingYear}_report_draft.docx`;
+  const safeFile = filename.replace(/[^\w.\-()가-힣\s]/g, "_");
+
+  if (!isSupabaseConfigured()) {
+    throw new Error(
+      "DOCX 다운로드에는 Supabase Storage가 필요합니다. 환경 변수를 확인하세요.",
+    );
+  }
+
+  const { company, project } = await getActiveWorkspace();
+  const admin = createSupabaseAdminClient();
+  const { error: bucketErr } = await admin.storage.createBucket(
+    "report-drafts",
+    {
+      public: false,
+      fileSizeLimit: 52428800,
+      allowedMimeTypes: [
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      ],
+    },
+  );
+  if (bucketErr && !/already exists|duplicate/i.test(bucketErr.message)) {
+    // ignore; signed URL surfaces real issues
+  }
+
+  const storagePath = `${company.id}/${project.id}/${newId()}/${safeFile}`;
+  const { error: upErr } = await admin.storage
+    .from("report-drafts")
+    .upload(storagePath, buffer, {
+      contentType:
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      upsert: true,
+    });
+  if (upErr) throw new Error(upErr.message);
+
+  const { data: signed, error: signErr } = await admin.storage
+    .from("report-drafts")
+    .createSignedUrl(storagePath, 120);
+  if (signErr || !signed?.signedUrl) {
+    throw new Error(signErr?.message ?? "다운로드 URL 생성 실패");
+  }
+
+  return {
+    filename: safeFile,
+    downloadUrl: signed.signedUrl,
+    storagePath,
+  };
 }
 
 function narrativeToDocx(narrative: string | null | undefined) {

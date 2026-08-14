@@ -112,7 +112,8 @@ async function maybeOpenAISummary(
         {
           role: "user",
           content: JSON.stringify({
-            previousNarrative,
+            // Block-scoped narrative only — never full report PDF/text from client.
+            previousNarrative: (previousNarrative ?? "").slice(0, 12000),
             structuredDiff: payload,
           }),
         },

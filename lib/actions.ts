@@ -252,6 +252,8 @@ export async function actionUploadEvidence(input: {
   content_version_id: string;
   relationship_type?: EvidenceRelationshipType;
   document_type?: string;
+  storage_path?: string;
+  evidence_id?: string;
 }) {
   const result = await uploadEvidence(input);
   revalidatePath("/evidence");
@@ -338,7 +340,7 @@ export async function actionEditSuggestion(
 export async function actionCreateExtraction(input: {
   filename: string;
   toc_section: string;
-  file_base64: string;
+  storage_path: string;
 }) {
   const result = await createExtractionJobFromUpload(input);
   revalidatePath("/extraction");

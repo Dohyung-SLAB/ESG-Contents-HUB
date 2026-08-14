@@ -1,23 +1,19 @@
-import { buildReportDraftModel, generateReportDocx } from "@/lib/services/report-draft";
+import { createReportDraftDownload } from "@/lib/services/report-draft";
 
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
+/**
+ * Returns a short-lived Storage signed URL for the generated DOCX.
+ * Does not stream the binary through the Vercel response body (4.5MB cap).
+ */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const approvedOnly = searchParams.get("approvedOnly") === "1";
 
   try {
-    const model = await buildReportDraftModel({ approvedOnly });
-    const buffer = await generateReportDocx(model);
-    const filename = encodeURIComponent(
-      `${model.companyName}_${model.reportingYear}_report_draft.docx`,
-    );
-    return new Response(new Uint8Array(buffer), {
-      status: 200,
-      headers: {
-        "Content-Type":
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "Content-Disposition": `attachment; filename*=UTF-8''${filename}`,
-      },
-    });
+    const result = await createReportDraftDownload({ approvedOnly });
+    return Response.json(result);
   } catch (e) {
     const message = e instanceof Error ? e.message : "DOCX 생성 실패";
     return Response.json({ error: message }, { status: 500 });

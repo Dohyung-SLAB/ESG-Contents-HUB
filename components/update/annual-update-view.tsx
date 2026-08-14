@@ -138,16 +138,54 @@ export function AnnualUpdateView({
       return;
     }
     if (!detail.current) return;
-    run(
-      () =>
-        actionUploadEvidence({
+    run(async () => {
+      const prepRes = await fetch("/api/evidence/prepare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           filename: file.name,
+          byteLength: file.size,
           content_version_id: detail.current!.id,
-          relationship_type: relationship,
-          document_type: ext.toUpperCase(),
         }),
-      `Evidence uploaded: ${file.name}`,
-    );
+      });
+      const prepText = await prepRes.text();
+      let prep: {
+        error?: string;
+        storagePath?: string;
+        token?: string;
+        evidenceId?: string;
+      };
+      try {
+        prep = JSON.parse(prepText) as typeof prep;
+      } catch {
+        throw new Error(
+          prepText.slice(0, 160) || `업로드 준비 실패 (${prepRes.status})`,
+        );
+      }
+      if (!prepRes.ok || !prep.storagePath || !prep.token) {
+        throw new Error(prep.error ?? `업로드 준비 실패 (${prepRes.status})`);
+      }
+
+      const { createSupabaseBrowserClient } = await import(
+        "@/lib/supabase/client"
+      );
+      const supabase = createSupabaseBrowserClient();
+      const { error: upErr } = await supabase.storage
+        .from("evidences")
+        .uploadToSignedUrl(prep.storagePath, prep.token, file);
+      if (upErr) {
+        throw new Error(upErr.message || "Storage 업로드 실패");
+      }
+
+      await actionUploadEvidence({
+        filename: file.name,
+        content_version_id: detail.current!.id,
+        relationship_type: relationship,
+        document_type: ext.toUpperCase(),
+        storage_path: prep.storagePath,
+        evidence_id: prep.evidenceId,
+      });
+    }, `Evidence uploaded: ${file.name}`);
   }
 
   const latest = (type: AiSuggestion["suggestion_type"]) =>
@@ -308,7 +346,8 @@ export function AnnualUpdateView({
               }}
             />
             <p className="text-xs text-muted-foreground">
-              PDF, DOCX, XLSX, PPTX, CSV, images
+              PDF, DOCX, XLSX, PPTX, CSV, images — 파일은 Supabase Storage로 직접
+              업로드됩니다 (서버 body 미통과).
             </p>
             <ul className="text-xs text-muted-foreground">
               {detail.evidences.map(({ evidence, link }) =>

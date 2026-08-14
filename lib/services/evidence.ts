@@ -99,6 +99,66 @@ function listEvidencesPilot() {
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
 }
 
+export async function prepareEvidenceUpload(input: {
+  filename: string;
+  byteLength: number;
+  content_version_id: string;
+}) {
+  const user = await getSessionUser();
+  const ext = input.filename.split(".").pop()?.toLowerCase() ?? "";
+  if (!ALLOWED_EXT.includes(ext)) {
+    throw new Error(`지원하지 않는 파일 형식입니다: .${ext}`);
+  }
+  if (input.byteLength <= 0) throw new Error("빈 파일입니다.");
+  if (input.byteLength > 50 * 1024 * 1024) {
+    throw new Error("Evidence 파일은 50MB 이하여야 합니다.");
+  }
+  if (!isSupabaseConfigured()) {
+    throw new Error(
+      "Supabase Storage가 필요합니다. NEXT_PUBLIC_SUPABASE_URL / keys를 확인하세요.",
+    );
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { data: version, error: vErr } = await admin
+    .from("content_versions")
+    .select("id")
+    .eq("id", input.content_version_id)
+    .maybeSingle();
+  if (vErr) throw new Error(vErr.message);
+  if (!version) throw new Error("콘텐츠 버전을 찾을 수 없습니다.");
+
+  const workspace = await getActiveWorkspace();
+  const evidenceId = newId();
+  const safeName = input.filename.replace(/[^\w.\-()가-힣\s]/g, "_");
+  const storagePath = `${workspace.company.id}/${evidenceId}/${safeName}`;
+
+  const { error: bucketErr } = await admin.storage.createBucket("evidences", {
+    public: false,
+    fileSizeLimit: 52428800,
+  });
+  if (bucketErr && !/already exists|duplicate/i.test(bucketErr.message)) {
+    // ignore missing-bucket race; signed URL will surface real errors
+  }
+
+  const { data, error } = await admin.storage
+    .from("evidences")
+    .createSignedUploadUrl(storagePath);
+  if (error || !data) {
+    throw new Error(
+      error?.message ??
+        "Evidence 업로드 URL을 만들지 못했습니다. evidences 버킷을 확인하세요.",
+    );
+  }
+
+  return {
+    evidenceId,
+    storagePath: data.path,
+    token: data.token,
+    signedUrl: data.signedUrl,
+  };
+}
+
 export async function uploadEvidence(input: {
   filename: string;
   document_type?: string;
@@ -106,7 +166,10 @@ export async function uploadEvidence(input: {
   department?: string;
   content_version_id: string;
   relationship_type?: EvidenceRelationshipType;
+  /** Required when Supabase is configured — file must already be in Storage. */
   storage_path?: string;
+  /** Optional pre-allocated id from prepareEvidenceUpload */
+  evidence_id?: string;
 }) {
   if (!isSupabaseConfigured()) {
     return uploadEvidencePilot(input);
@@ -116,6 +179,12 @@ export async function uploadEvidence(input: {
   const ext = input.filename.split(".").pop()?.toLowerCase() ?? "";
   if (!ALLOWED_EXT.includes(ext)) {
     throw new Error(`지원하지 않는 파일 형식입니다: .${ext}`);
+  }
+  const storagePath = input.storage_path?.trim();
+  if (!storagePath) {
+    throw new Error(
+      "storage_path가 필요합니다. 브라우저에서 Evidence를 Storage로 먼저 업로드하세요.",
+    );
   }
 
   const admin = createSupabaseAdminClient();
@@ -127,9 +196,20 @@ export async function uploadEvidence(input: {
   if (vErr) throw new Error(vErr.message);
   if (!version) throw new Error("콘텐츠 버전을 찾을 수 없습니다.");
 
+  // Verify object exists in Storage (metadata-only registration).
+  const { error: signErr } = await admin.storage
+    .from("evidences")
+    .createSignedUrl(storagePath, 30);
+  if (signErr) {
+    throw new Error(
+      signErr.message ||
+        "Storage에서 Evidence 파일을 찾지 못했습니다. 업로드 후 다시 시도하세요.",
+    );
+  }
+
   const workspace = await getActiveWorkspace();
   const ts = touch();
-  const evidenceId = newId();
+  const evidenceId = input.evidence_id?.trim() || newId();
   const evidence = {
     id: evidenceId,
     company_id: workspace.company.id,
@@ -137,9 +217,7 @@ export async function uploadEvidence(input: {
     document_type: input.document_type ?? ext.toUpperCase(),
     reporting_year: input.reporting_year ?? version.reporting_year,
     department: input.department ?? user.department,
-    storage_path:
-      input.storage_path ??
-      `demo/${workspace.company.id}/${evidenceId}/${input.filename}`,
+    storage_path: storagePath,
     uploaded_by: user.id,
     created_at: ts,
     updated_at: ts,

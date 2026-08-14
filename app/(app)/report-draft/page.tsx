@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { NarrativePreview } from "@/components/extraction/narrative-preview";
 import { PageHeader } from "@/components/layout/page-header";
+import { ReportDraftDownloadButton } from "@/components/report/report-draft-download-button";
 import { buttonVariants } from "@/components/ui/button";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { getSessionUser } from "@/lib/data/session";
@@ -56,12 +57,7 @@ export default async function ReportDraftPage({
         >
           승인본만
         </Link>
-        <a
-          href={`/api/report-draft${approvedOnly ? "?approvedOnly=1" : ""}`}
-          className={cn(buttonVariants(), "text-sm")}
-        >
-          DOCX 다운로드
-        </a>
+        <ReportDraftDownloadButton approvedOnly={approvedOnly} />
       </div>
 
       <section className="rounded-lg border bg-white p-6">

@@ -452,12 +452,8 @@ export async function prepareReportUpload(input: {
 export async function createExtractionJobFromUpload(input: {
   filename: string;
   toc_section: string;
-  /** Prefer: PDF already uploaded to Storage (Vercel-safe). */
-  storage_path?: string;
-  /** Raw PDF bytes (local / small uploads only — Vercel caps at ~4.5MB). */
-  file_bytes?: Uint8Array | Buffer;
-  /** @deprecated prefer file_bytes — kept for compatibility */
-  file_base64?: string;
+  /** PDF already uploaded to Storage (required on Vercel). */
+  storage_path: string;
 }) {
   const user = await getSessionUser();
   if (!canManageExtraction(user.role)) {
@@ -470,40 +466,34 @@ export async function createExtractionJobFromUpload(input: {
     throw new Error("PDF 파일만 업로드할 수 있습니다.");
   }
 
+  const storagePath = input.storage_path.trim();
+  if (!storagePath) {
+    throw new Error(
+      "storage_path가 필요합니다. 브라우저에서 Supabase Storage로 PDF를 먼저 업로드하세요.",
+    );
+  }
+
   const workspace = await getActiveWorkspace();
   const ts = touch();
   const jobId = newId();
-  let storagePath =
-    input.storage_path?.trim() ||
-    `${workspace.company.id}/${workspace.project.id}/${jobId}/${input.filename}`;
 
-  let buffer: Buffer;
-  let alreadyInStorage = Boolean(input.storage_path?.trim());
-
-  if (alreadyInStorage) {
-    if (!isSupabaseConfigured()) {
-      throw new Error("Supabase가 설정되지 않아 Storage PDF를 읽을 수 없습니다.");
-    }
-    const admin = createSupabaseAdminClient();
-    const { data, error } = await admin.storage
-      .from("reports")
-      .download(storagePath);
-    if (error || !data) {
-      throw new Error(
-        error?.message ??
-          "Storage에서 PDF를 받지 못했습니다. 업로드 후 다시 시도하세요.",
-      );
-    }
-    buffer = Buffer.from(await data.arrayBuffer());
-  } else if (input.file_bytes) {
-    buffer = Buffer.isBuffer(input.file_bytes)
-      ? input.file_bytes
-      : Buffer.from(input.file_bytes);
-  } else if (input.file_base64) {
-    buffer = Buffer.from(input.file_base64, "base64");
-  } else {
-    throw new Error("PDF 파일 데이터가 없습니다.");
+  if (!isSupabaseConfigured()) {
+    throw new Error(
+      "Supabase가 설정되지 않아 Storage PDF를 읽을 수 없습니다. 환경 변수를 확인하세요.",
+    );
   }
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.storage
+    .from("reports")
+    .download(storagePath);
+  if (error || !data) {
+    throw new Error(
+      error?.message ??
+        "Storage에서 PDF를 받지 못했습니다. 업로드 후 다시 시도하세요.",
+    );
+  }
+  const buffer = Buffer.from(await data.arrayBuffer());
 
   if (buffer.byteLength > 50 * 1024 * 1024) {
     throw new Error("PDF는 50MB 이하여야 합니다.");
@@ -525,18 +515,7 @@ export async function createExtractionJobFromUpload(input: {
     updated_at: ts,
   };
 
-  if (isSupabaseConfigured()) {
-    const admin = createSupabaseAdminClient();
-    if (!alreadyInStorage) {
-      try {
-        await admin.storage.from("reports").upload(storagePath, buffer, {
-          contentType: "application/pdf",
-          upsert: true,
-        });
-      } catch {
-        // Bucket may be missing; continue with in-memory bytes
-      }
-    }
+  {
     const { error: jErr } = await admin.from("extraction_jobs").insert(job);
     if (jErr) {
       // toc_section column may be missing before migration
@@ -553,8 +532,6 @@ export async function createExtractionJobFromUpload(input: {
       });
       if (jErr2) throw new Error(jErr2.message);
     }
-  } else {
-    getPilotStore().extraction_jobs.push(job);
   }
 
   try {
