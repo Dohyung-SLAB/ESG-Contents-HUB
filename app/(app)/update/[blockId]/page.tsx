@@ -63,7 +63,7 @@ export default async function UpdateBlockPage({ params }: Props) {
     <div>
       <PageHeader
         title={`Annual Update — ${detail.block.code}`}
-        description="전년 대비 변경사항만 입력하고 제출합니다."
+        description="수정 메모를 적고, 필요하면 근거를 첨부한 뒤 보고서를 생성하세요."
       />
       <AnnualUpdateView
         detail={detail}

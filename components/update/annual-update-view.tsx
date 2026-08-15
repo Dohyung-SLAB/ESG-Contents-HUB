@@ -4,25 +4,16 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import {
-  actionApplySuggestion,
-  actionEditSuggestion,
-  actionGenerateChangeSummary,
-  actionGenerateEvidenceCheck,
   actionGenerateNarrative,
-  actionRejectSuggestion,
   actionSaveDraft,
   actionUploadEvidence,
 } from "@/lib/actions";
-import { ChangeTypeBadge, StatusBadge } from "@/components/shared/status-badge";
-import {
-  type FactDraft,
-  UpdateTypeForm,
-} from "@/components/update/update-type-forms";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { ChangeType, EvidenceRelationshipType, UserRole } from "@/types/enums";
-import type { AiSuggestion, ContentBlock, ContentVersion, KeyFact } from "@/types/database";
+import type { UserRole } from "@/types/enums";
+import type { ContentBlock, ContentVersion, KeyFact } from "@/types/database";
 
 type Detail = {
   block: ContentBlock;
@@ -36,18 +27,27 @@ type Detail = {
   }>;
 };
 
-const ALLOWED_EXT = ["pdf", "docx", "xlsx", "pptx", "csv", "png", "jpg", "jpeg", "gif", "webp"];
+const ALLOWED_EXT = [
+  "pdf",
+  "docx",
+  "xlsx",
+  "pptx",
+  "csv",
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "webp",
+];
 
 export function AnnualUpdateView({
   detail,
-  suggestions,
   role,
   canEdit: canEditProp,
   userDepartment,
-  previousEvidences,
 }: {
   detail: Detail;
-  suggestions: AiSuggestion[];
+  suggestions: unknown;
   role: UserRole;
   canEdit?: boolean;
   userDepartment?: string | null;
@@ -59,68 +59,28 @@ export function AnnualUpdateView({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [changeType, setChangeType] = useState<ChangeType>(
-    detail.current?.change_type === "PENDING"
-      ? "MODIFIED"
-      : (detail.current?.change_type ?? "MODIFIED"),
-  );
-  const [notes, setNotes] = useState("");
-  const [narrative, setNarrative] = useState(detail.current?.narrative ?? "");
-  const [relationship, setRelationship] =
-    useState<EvidenceRelationshipType>("SUPPORTING");
+  const [memo, setMemo] = useState("");
+  const [report, setReport] = useState(detail.current?.narrative ?? "");
   const [dragOver, setDragOver] = useState(false);
 
   useEffect(() => {
-    setNarrative(detail.current?.narrative ?? "");
-    setChangeType(
-      detail.current?.change_type === "PENDING"
-        ? "MODIFIED"
-        : (detail.current?.change_type ?? "MODIFIED"),
-    );
-  }, [
-    detail.current?.id,
-    detail.current?.narrative,
-    detail.current?.change_type,
-    detail.current?.updated_at,
-  ]);
+    setReport(detail.current?.narrative ?? "");
+  }, [detail.current?.id, detail.current?.narrative, detail.current?.updated_at]);
 
-  const initialFacts: FactDraft[] = useMemo(() => {
+  const keyFactsPayload = useMemo(() => {
     const source =
       detail.current_key_facts.length > 0
         ? detail.current_key_facts
         : detail.previous_key_facts;
-    if (detail.block.code === "CT-006" && source.length === 0) {
-      return [
-        {
-          key: "적용 매장",
-          value_text: "",
-          value_number: "188",
-          unit: "개",
-          value_type: "NUMBER",
-        },
-        {
-          key: "모의훈련 주기",
-          value_text: "반기 1회",
-          value_number: "",
-          unit: "",
-          value_type: "FREQUENCY",
-        },
-      ];
-    }
-    return source.map((f) => ({
+    return source.map((f, i) => ({
       key: f.key,
-      value_text: f.value_text ?? "",
-      value_number: f.value_number != null ? String(f.value_number) : "",
-      unit: f.unit ?? "",
+      value_text: f.value_text ?? null,
+      value_number: f.value_number ?? null,
+      unit: f.unit ?? null,
       value_type: f.value_type,
+      display_order: f.display_order ?? i + 1,
     }));
-  }, [detail]);
-
-  const [facts, setFacts] = useState<FactDraft[]>(initialFacts);
-
-  useEffect(() => {
-    setFacts(initialFacts);
-  }, [initialFacts]);
+  }, [detail.current_key_facts, detail.previous_key_facts]);
 
   function run(action: () => Promise<unknown>, okMessage: string) {
     setError(null);
@@ -131,30 +91,20 @@ export function AnnualUpdateView({
         setMessage(okMessage);
         router.refresh();
       } catch (e) {
-        setError(e instanceof Error ? e.message : "요청 처리 중 오류가 발생했습니다.");
+        setError(
+          e instanceof Error ? e.message : "요청 처리 중 오류가 발생했습니다.",
+        );
       }
     });
   }
 
-  function changeMemoText() {
-    // Prefer the change memo field; fall back to draft narrative if memo empty
-    return (notes.trim() || narrative.trim());
-  }
-
-  function toPayload() {
+  function toPayload(submit = false) {
     return {
       blockId: detail.block.code,
-      change_type: changeType,
-      // Prefer updated narrative result; keep memo only as fallback before generate
-      narrative: narrative.trim() || notes.trim() || null,
-      key_facts: facts.map((f, i) => ({
-        key: f.key,
-        value_text: f.value_text || null,
-        value_number: f.value_number ? Number(f.value_number) : null,
-        unit: f.unit || null,
-        value_type: f.value_type,
-        display_order: i + 1,
-      })),
+      change_type: "MODIFIED" as const,
+      narrative: report.trim() || memo.trim() || null,
+      key_facts: keyFactsPayload,
+      submit,
     };
   }
 
@@ -207,29 +157,22 @@ export function AnnualUpdateView({
       await actionUploadEvidence({
         filename: file.name,
         content_version_id: detail.current!.id,
-        relationship_type: relationship,
+        relationship_type: "SUPPORTING",
         document_type: ext.toUpperCase(),
         storage_path: prep.storagePath,
         evidence_id: prep.evidenceId,
       });
-    }, `Evidence uploaded: ${file.name}`);
+    }, `근거 파일을 첨부했습니다: ${file.name}`);
   }
 
-  const latest = (type: AiSuggestion["suggestion_type"]) =>
-    suggestions.find((s) => s.suggestion_type === type && s.status !== "SUPERSEDED") ??
-    null;
-
-  const changeSuggestion = latest("CHANGE_SUMMARY");
-  const narrativeSuggestion = latest("NARRATIVE_UPDATE");
-  const evidenceCheck = latest("EVIDENCE_CHECK");
+  const attached = detail.evidences.filter((e) => e.evidence);
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-3xl space-y-5">
       <div className="flex flex-wrap items-center gap-2">
         <StatusBadge status={detail.current?.status ?? "NOT_STARTED"} />
-        <ChangeTypeBadge changeType={changeType} />
         <span className="text-sm text-muted-foreground">
-          {detail.block.code} · {detail.block.title} · {detail.block.update_type}
+          {detail.block.code} · {detail.block.title}
         </span>
       </div>
 
@@ -237,7 +180,7 @@ export function AnnualUpdateView({
         <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
           {role === "CONTRIBUTOR"
             ? `자기 부서(${userDepartment ?? "미설정"})에 지정된 컨텐츠만 수정할 수 있습니다. 현재 작성 부서: ${detail.block.owner_department ?? "미지정"}`
-            : `현재 역할(${role})은 업데이트를 저장할 수 없습니다. Reviewer는 검토만 하며, 작성 부서 지정은 Library에서 가능합니다.`}
+            : `현재 역할(${role})은 업데이트를 저장할 수 없습니다.`}
         </p>
       ) : null}
       {error ? (
@@ -251,404 +194,152 @@ export function AnnualUpdateView({
         </p>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section className="rounded-lg border bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold text-[var(--brand-navy)]">
-            Previous Year ({detail.previous?.reporting_year ?? "—"})
-          </h2>
-          <p className="mb-3 whitespace-pre-wrap rounded-md bg-slate-50 p-3 text-sm">
-            {detail.previous?.narrative ?? "—"}
-          </p>
-          <h3 className="mb-1 text-xs font-medium uppercase text-muted-foreground">
-            Key Facts
-          </h3>
-          <ul className="mb-3 space-y-1 text-sm">
-            {detail.previous_key_facts.map((f) => (
-              <li key={f.id}>
-                {f.key}: {f.value_text ?? f.value_number}
-                {f.unit ? ` ${f.unit}` : ""}
-              </li>
-            ))}
-          </ul>
-          <h3 className="mb-1 text-xs font-medium uppercase text-muted-foreground">
-            Previous Evidence
-          </h3>
-          {previousEvidences.length === 0 ? (
-            <p className="mb-3 text-sm text-muted-foreground">None</p>
-          ) : (
-            <ul className="mb-3 space-y-1 text-sm">
-              {previousEvidences.map((e) => (
-                <li key={`${e.filename}-${e.relationship_type}`}>
-                  {e.filename} ({e.relationship_type})
-                </li>
-              ))}
-            </ul>
-          )}
-          <p className="text-xs text-muted-foreground">
-            Source: {detail.previous?.source_document ?? "—"} / p.
-            {detail.previous?.source_page ?? "—"}
-          </p>
-        </section>
-
-        <section className="rounded-lg border bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold text-[var(--brand-navy)]">
-            Current Year Update ({detail.current?.reporting_year ?? "—"})
-          </h2>
-
-          <div className="mb-3 space-y-2">
-            <Label>Change Type</Label>
-            <select
-              className="h-9 w-full rounded-md border px-2 text-sm"
-              value={changeType}
-              disabled={!canEdit}
-              onChange={(e) => setChangeType(e.target.value as ChangeType)}
-            >
-              <option value="NO_CHANGE">변경 없음 (NO_CHANGE)</option>
-              <option value="MODIFIED">수정 (MODIFIED)</option>
-              <option value="NEW">신규 (NEW)</option>
-              <option value="DELETED">삭제 검토 (DELETED)</option>
-            </select>
-          </div>
-
-          <div className="mb-3">
-            <Label className="mb-2 block">Update Form</Label>
-            <UpdateTypeForm
-              updateType={detail.block.update_type}
-              formSchema={detail.block.form_schema}
-              facts={facts}
-              onChange={setFacts}
-              notes={notes}
-              onNotes={setNotes}
-              narrative={narrative}
-              onNarrative={setNarrative}
-              canEdit={canEdit}
-            />
-          </div>
-
-          {detail.block.update_type !== "NARRATIVE" ? (
-            <div className="mb-3 space-y-2">
-              <Label>Optional narrative draft (AI Apply target)</Label>
-              <textarea
-                className="min-h-20 w-full rounded-md border p-2 text-sm"
-                value={narrative}
-                disabled={!canEdit}
-                onChange={(e) => setNarrative(e.target.value)}
-              />
-            </div>
-          ) : null}
-
-          <div
-            className={`mb-4 space-y-2 rounded-md border border-dashed p-3 ${
-              dragOver ? "border-[var(--brand-navy)] bg-slate-50" : ""
-            }`}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragOver(true);
-            }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setDragOver(false);
-              const file = e.dataTransfer.files?.[0];
-              if (file) uploadFile(file);
-            }}
-          >
-            <Label>Evidence upload (drag & drop or select)</Label>
-            <select
-              className="h-8 w-full rounded-md border px-2 text-sm"
-              value={relationship}
-              disabled={!canEdit}
-              onChange={(e) =>
-                setRelationship(e.target.value as EvidenceRelationshipType)
-              }
-            >
-              <option value="PRIMARY">PRIMARY</option>
-              <option value="SUPPORTING">SUPPORTING</option>
-              <option value="REFERENCE">REFERENCE</option>
-            </select>
-            <Input
-              type="file"
-              disabled={!canEdit || pending}
-              accept=".pdf,.docx,.xlsx,.pptx,.csv,image/*"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) uploadFile(file);
-              }}
-            />
-            <p className="text-xs text-muted-foreground">
-              PDF, DOCX, XLSX, PPTX, CSV, images — 파일은 Supabase Storage로 직접
-              업로드됩니다 (서버 body 미통과).
-            </p>
-            <ul className="text-xs text-muted-foreground">
-              {detail.evidences.map(({ evidence, link }) =>
-                evidence ? (
-                  <li key={link.id}>
-                    {evidence.filename} ({link.relationship_type})
-                  </li>
-                ) : null,
-              )}
-            </ul>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Button
-              disabled={pending || !canEdit}
-              onClick={() => run(() => actionSaveDraft(toPayload()), "Draft saved")}
-            >
-              Save Draft
-            </Button>
-            <Button
-              variant="secondary"
-              disabled={pending || !canEdit}
-              onClick={() =>
-                run(
-                  () => actionSaveDraft({ ...toPayload(), submit: true }),
-                  "Submitted for review",
-                )
-              }
-            >
-              Submit
-            </Button>
-          </div>
-        </section>
-      </div>
-
+      {/* 1. 작년 보고서 (참고) */}
       <section className="rounded-lg border bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold">AI Assist</h2>
+        <h2 className="mb-1 text-base font-semibold text-[var(--brand-navy)]">
+          작년 보고서
+        </h2>
         <p className="mb-3 text-xs text-muted-foreground">
-          Narrative는 Current Year에 입력한 수정 메모를 기준으로 전년 서술을
-          고쳐 올해 본문에 반영합니다. (생성 시 자동 저장)
+          {detail.previous?.reporting_year ?? "—"}년 서술 · 생성 시 기준으로
+          사용됩니다
         </p>
-        <div className="mb-3 flex flex-wrap gap-2">
+        <div className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-md bg-slate-50 p-3 text-sm leading-relaxed">
+          {detail.previous?.narrative?.trim() || "작년 서술이 없습니다."}
+        </div>
+      </section>
+
+      {/* 2. 수정 메모 */}
+      <section className="rounded-lg border bg-white p-4">
+        <h2 className="mb-1 text-base font-semibold text-[var(--brand-navy)]">
+          수정 메모
+        </h2>
+        <p className="mb-3 text-xs text-muted-foreground">
+          전년 대비 바뀐 내용만 적어 주세요. (전문 재작성 불필요)
+        </p>
+        <textarea
+          className="min-h-28 w-full rounded-md border p-3 text-sm"
+          value={memo}
+          disabled={!canEdit}
+          onChange={(e) => setMemo(e.target.value)}
+          placeholder="예: 탄소중립추진위원회를 설립하여 에너지 관리 체계를 정비"
+        />
+      </section>
+
+      {/* 3. 근거 첨부 (선택) */}
+      <section
+        className={`rounded-lg border border-dashed bg-white p-4 ${
+          dragOver ? "border-[var(--brand-navy)] bg-slate-50" : ""
+        }`}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          const file = e.dataTransfer.files?.[0];
+          if (file) uploadFile(file);
+        }}
+      >
+        <h2 className="mb-1 text-base font-semibold text-[var(--brand-navy)]">
+          관련 근거 첨부
+        </h2>
+        <p className="mb-3 text-xs text-muted-foreground">
+          선택 사항입니다. 없어도 보고서 생성이 가능합니다.
+        </p>
+        <Input
+          type="file"
+          disabled={!canEdit || pending}
+          accept=".pdf,.docx,.xlsx,.pptx,.csv,image/*"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) uploadFile(file);
+          }}
+        />
+        {attached.length > 0 ? (
+          <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
+            {attached.map(({ evidence, link }) =>
+              evidence ? (
+                <li key={link.id}>{evidence.filename}</li>
+              ) : null,
+            )}
+          </ul>
+        ) : (
+          <p className="mt-3 text-xs text-muted-foreground">첨부된 파일 없음</p>
+        )}
+      </section>
+
+      {/* 4. 보고서 생성 */}
+      <section className="rounded-lg border bg-white p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-base font-semibold text-[var(--brand-navy)]">
+              올해 보고서 초안
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              작년 보고서 + 수정 메모를 바탕으로 생성합니다
+            </p>
+          </div>
           <Button
-            variant="outline"
-            disabled={pending || !canEdit}
-            onClick={() =>
-              run(
-                () => actionGenerateChangeSummary(detail.block.code),
-                "Change summary generated",
-              )
-            }
-          >
-            Generate / Regenerate Change Summary
-          </Button>
-          <Button
-            variant="outline"
             disabled={pending || !canEdit}
             onClick={() =>
               run(async () => {
-                const memo = changeMemoText();
-                if (!memo) {
-                  throw new Error(
-                    "수정 메모를 먼저 입력하세요. (서술형 변경 메모 또는 Optional narrative draft)",
-                  );
+                const changeMemo = memo.trim();
+                if (!changeMemo) {
+                  throw new Error("수정 메모를 먼저 작성해 주세요.");
                 }
-                // Persist memo + facts first so server/AI see the same draft
-                await actionSaveDraft(toPayload());
+                await actionSaveDraft({
+                  ...toPayload(false),
+                  narrative: changeMemo,
+                });
                 const result = await actionGenerateNarrative(
                   detail.block.code,
-                  memo,
+                  changeMemo,
                 );
                 if (result?.narrative) {
-                  setNarrative(result.narrative);
+                  setReport(result.narrative);
                 }
-              }, "전년 서술에 수정 메모를 반영해 올해 서술로 저장했습니다")
+              }, "보고서를 생성해 저장했습니다")
             }
           >
-            Generate / Regenerate Narrative
+            {pending ? "생성 중…" : "보고서 생성"}
           </Button>
+        </div>
+        <Label className="mb-1 block text-xs text-muted-foreground">
+          생성 결과 (직접 수정 가능)
+        </Label>
+        <textarea
+          className="min-h-48 w-full rounded-md border p-3 text-sm leading-relaxed"
+          value={report}
+          disabled={!canEdit}
+          onChange={(e) => setReport(e.target.value)}
+          placeholder="「보고서 생성」을 누르면 여기에 결과가 나타납니다"
+        />
+        <div className="mt-3 flex flex-wrap gap-2">
           <Button
             variant="outline"
-            disabled={pending || !canEdit}
+            disabled={pending || !canEdit || !report.trim()}
+            onClick={() =>
+              run(() => actionSaveDraft(toPayload(false)), "초안을 저장했습니다")
+            }
+          >
+            초안 저장
+          </Button>
+          <Button
+            variant="secondary"
+            disabled={pending || !canEdit || !report.trim()}
             onClick={() =>
               run(
-                () => actionGenerateEvidenceCheck(detail.block.code),
-                "Evidence check generated",
+                () => actionSaveDraft(toPayload(true)),
+                "검토 요청을 제출했습니다",
               )
             }
           >
-            Evidence Check
+            제출
           </Button>
         </div>
-
-        {changeSuggestion ? (
-          <SuggestionCard
-            title="Change Summary"
-            suggestion={changeSuggestion}
-            pending={pending}
-            canEdit={canEdit}
-            editableKey="summary"
-            onApply={() =>
-              run(
-                () => actionApplySuggestion(changeSuggestion.id, detail.block.code),
-                "Change summary applied",
-              )
-            }
-            onReject={() =>
-              run(
-                () => actionRejectSuggestion(changeSuggestion.id, detail.block.code),
-                "Suggestion rejected",
-              )
-            }
-            onEdit={(value) =>
-              run(
-                () =>
-                  actionEditSuggestion(changeSuggestion.id, detail.block.code, {
-                    summary: value,
-                  }),
-                "Suggestion edited",
-              )
-            }
-          />
-        ) : null}
-
-        {narrativeSuggestion ? (
-          <SuggestionCard
-            title="Narrative Suggestion"
-            suggestion={narrativeSuggestion}
-            pending={pending}
-            canEdit={canEdit}
-            editableKey="suggestedNarrative"
-            onApply={() =>
-              run(async () => {
-                const applied = await actionApplySuggestion(
-                  narrativeSuggestion.id,
-                  detail.block.code,
-                );
-                const text = String(
-                  (applied?.payload as { suggestedNarrative?: string } | null)
-                    ?.suggestedNarrative ?? "",
-                );
-                if (text) {
-                  setNarrative(text);
-                }
-              }, "Narrative applied")
-            }
-            onReject={() =>
-              run(
-                () =>
-                  actionRejectSuggestion(narrativeSuggestion.id, detail.block.code),
-                "Suggestion rejected",
-              )
-            }
-            onEdit={(value) =>
-              run(
-                () =>
-                  actionEditSuggestion(narrativeSuggestion.id, detail.block.code, {
-                    suggestedNarrative: value,
-                  }),
-                "Suggestion edited",
-              )
-            }
-          />
-        ) : null}
-
-        {evidenceCheck ? (
-          <div className="mb-4 rounded-md border p-3">
-            <h3 className="mb-2 text-sm font-medium">
-              Evidence Check · {evidenceCheck.status}
-            </h3>
-            <EvidenceCheckBody payload={evidenceCheck.payload} />
-          </div>
-        ) : null}
       </section>
     </div>
-  );
-}
-
-function SuggestionCard({
-  title,
-  suggestion,
-  editableKey,
-  pending,
-  canEdit,
-  onApply,
-  onReject,
-  onEdit,
-}: {
-  title: string;
-  suggestion: AiSuggestion;
-  editableKey: string;
-  pending: boolean;
-  canEdit: boolean;
-  onApply: () => void;
-  onReject: () => void;
-  onEdit: (value: string) => void;
-}) {
-  const value = String(
-    (suggestion.payload as Record<string, unknown>)[editableKey] ?? "",
-  );
-  const [draft, setDraft] = useState(value);
-
-  return (
-    <div className="mb-4 rounded-md border p-3">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-medium">
-          {title} · {suggestion.status}
-        </h3>
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={pending || !canEdit || suggestion.status !== "PENDING"}
-            onClick={() => onEdit(draft)}
-          >
-            Save Edit
-          </Button>
-          <Button
-            size="sm"
-            disabled={pending || !canEdit || suggestion.status === "APPLIED"}
-            onClick={onApply}
-          >
-            Apply
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={pending || !canEdit}
-            onClick={onReject}
-          >
-            Reject
-          </Button>
-        </div>
-      </div>
-      <textarea
-        className="min-h-24 w-full rounded-md border p-2 text-sm"
-        value={draft}
-        disabled={!canEdit || suggestion.status !== "PENDING"}
-        onChange={(e) => setDraft(e.target.value)}
-      />
-    </div>
-  );
-}
-
-export function EvidenceCheckBody({ payload }: { payload: Record<string, unknown> }) {
-  const checks = (payload.checks as Array<{
-    claim: string;
-    status: string;
-    reason: string;
-  }>) ?? [];
-  const warnings = (payload.warnings as string[]) ?? [];
-  return (
-    <ul className="space-y-2 text-sm">
-      {checks.map((c) => (
-        <li key={c.claim} className="rounded-md bg-slate-50 p-2">
-          <p className="font-medium">
-            {c.status === "SUPPORTED"
-              ? "✓"
-              : c.status === "REVIEW_REQUIRED"
-                ? "⚠"
-                : "•"}{" "}
-            {c.status}: {c.claim}
-          </p>
-          <p className="text-muted-foreground">{c.reason}</p>
-        </li>
-      ))}
-      {warnings.map((w) => (
-        <li key={w} className="text-amber-700">
-          {w}
-        </li>
-      ))}
-    </ul>
   );
 }

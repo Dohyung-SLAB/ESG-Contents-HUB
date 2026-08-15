@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { EvidenceCheckBody } from "@/components/update/annual-update-view";
+import { EvidenceCheckBody } from "@/components/shared/evidence-check-body";
 import { actionReview } from "@/lib/actions";
 import { ChangeTypeBadge, StatusBadge } from "@/components/shared/status-badge";
 import { Button, buttonVariants } from "@/components/ui/button";

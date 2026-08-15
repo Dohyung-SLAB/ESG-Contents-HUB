@@ -268,7 +268,7 @@ async function buildNarrativeFromMemo(input: {
   const unsupportedClaims: string[] = [];
   if (!input.hasEvidence) {
     warnings.push(
-      "연결된 Evidence가 없어 일부 주장에 [확인 필요] 표시가 필요할 수 있습니다.",
+      "근거 파일이 없어도 생성이 가능합니다. 필요 시 나중에 첨부하세요.",
     );
   }
 
@@ -279,9 +279,7 @@ async function buildNarrativeFromMemo(input: {
       changeMemo: input.changeMemo,
     });
     return {
-      suggestedNarrative: input.hasEvidence
-        ? suggestedNarrative
-        : `${suggestedNarrative} [확인 필요]`,
+      suggestedNarrative,
       warnings: [
         ...warnings,
         "OpenAI 키가 없어 규칙 기반으로 전년 서술에 수정 메모를 반영했습니다.",
@@ -305,7 +303,7 @@ Rules:
 1. Start from the previous-year narrative and revise it using the change memo and key-fact diffs.
 2. Do not invent facts, activities, or numbers that are not in the inputs.
 3. Do not unnecessarily rewrite unchanged sentences.
-4. If evidence is missing or a claim is unsupported, keep the claim only if it appears in the memo/facts and mark [확인 필요].
+4. Evidence is optional. Do not append [확인 필요] only because evidence is missing; only mark claims that cannot be supported by the memo/facts.
 5. Preserve disclosure tone; output the full updated narrative for ${input.reportingYear}.
 6. Return JSON only: {"suggestedNarrative":"","warnings":[],"unsupportedClaims":[]}`,
         },
@@ -348,9 +346,7 @@ Rules:
       changeMemo: input.changeMemo,
     });
     return {
-      suggestedNarrative: input.hasEvidence
-        ? suggestedNarrative
-        : `${suggestedNarrative} [확인 필요]`,
+      suggestedNarrative,
       warnings: [
         ...warnings,
         "OpenAI 호출에 실패하여 규칙 기반으로 전년 서술에 수정 메모를 반영했습니다.",
