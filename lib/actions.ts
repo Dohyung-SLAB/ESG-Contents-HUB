@@ -302,9 +302,17 @@ export async function actionGenerateChangeSummary(blockId: string) {
   return result;
 }
 
-export async function actionGenerateNarrative(blockId: string) {
-  const result = await generateNarrativeUpdate(blockId);
+export async function actionGenerateNarrative(
+  blockId: string,
+  changeMemo?: string,
+) {
+  const result = await generateNarrativeUpdate(blockId, {
+    changeMemo,
+    apply: true,
+  });
   revalidatePath(`/update/${blockId}`);
+  revalidatePath("/library");
+  revalidatePath("/report-draft");
   return result;
 }
 

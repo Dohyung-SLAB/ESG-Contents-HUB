@@ -238,45 +238,182 @@ export type NarrativePayload = {
   unsupportedClaims: string[];
 };
 
-export async function generateNarrativeUpdate(blockId: string) {
+function factLines(facts: KeyFact[]): string[] {
+  return facts.map((f) => `${f.key}: ${factLabel(f)}`);
+}
+
+function fallbackNarrativeFromMemo(input: {
+  previousNarrative: string;
+  changeMemo: string;
+}): string {
+  const prev = input.previousNarrative.trim();
+  const memo = input.changeMemo.trim();
+  if (!prev) return memo;
+  // Memo already looks like a full replacement draft
+  if (memo.length >= Math.max(120, prev.length * 0.6)) return memo;
+  return `${prev}\n\n[금년 변경 반영] ${memo}`;
+}
+
+async function buildNarrativeFromMemo(input: {
+  blockTitle: string;
+  reportingYear: number;
+  previousNarrative: string;
+  changeMemo: string;
+  changeSummary: string | null;
+  previousFacts: KeyFact[];
+  currentFacts: KeyFact[];
+  hasEvidence: boolean;
+}): Promise<NarrativePayload> {
+  const warnings: string[] = [];
+  const unsupportedClaims: string[] = [];
+  if (!input.hasEvidence) {
+    warnings.push(
+      "연결된 Evidence가 없어 일부 주장에 [확인 필요] 표시가 필요할 수 있습니다.",
+    );
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey || apiKey.includes("your-openai")) {
+    const suggestedNarrative = fallbackNarrativeFromMemo({
+      previousNarrative: input.previousNarrative,
+      changeMemo: input.changeMemo,
+    });
+    return {
+      suggestedNarrative: input.hasEvidence
+        ? suggestedNarrative
+        : `${suggestedNarrative} [확인 필요]`,
+      warnings: [
+        ...warnings,
+        "OpenAI 키가 없어 규칙 기반으로 전년 서술에 수정 메모를 반영했습니다.",
+      ],
+      unsupportedClaims,
+    };
+  }
+
+  try {
+    const OpenAI = (await import("openai")).default;
+    const client = new OpenAI({ apiKey });
+    const response = await client.chat.completions.create({
+      model: "gpt-4.1-mini",
+      response_format: { type: "json_object" },
+      max_tokens: 4000,
+      messages: [
+        {
+          role: "system",
+          content: `You update Korean ESG sustainability-report narratives for the current reporting year.
+Rules:
+1. Start from the previous-year narrative and revise it using the change memo and key-fact diffs.
+2. Do not invent facts, activities, or numbers that are not in the inputs.
+3. Do not unnecessarily rewrite unchanged sentences.
+4. If evidence is missing or a claim is unsupported, keep the claim only if it appears in the memo/facts and mark [확인 필요].
+5. Preserve disclosure tone; output the full updated narrative for ${input.reportingYear}.
+6. Return JSON only: {"suggestedNarrative":"","warnings":[],"unsupportedClaims":[]}`,
+        },
+        {
+          role: "user",
+          content: JSON.stringify({
+            blockTitle: input.blockTitle,
+            reportingYear: input.reportingYear,
+            previousNarrative: input.previousNarrative.slice(0, 12000),
+            changeMemo: input.changeMemo.slice(0, 8000),
+            changeSummary: input.changeSummary,
+            previousKeyFacts: factLines(input.previousFacts),
+            currentKeyFacts: factLines(input.currentFacts),
+            hasEvidence: input.hasEvidence,
+          }),
+        },
+      ],
+    });
+
+    const raw = response.choices[0]?.message?.content?.trim() ?? "{}";
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const suggested = String(parsed.suggestedNarrative ?? "").trim();
+    if (!suggested) {
+      throw new Error("empty narrative");
+    }
+    const aiWarnings = Array.isArray(parsed.warnings)
+      ? parsed.warnings.map(String)
+      : [];
+    const aiUnsupported = Array.isArray(parsed.unsupportedClaims)
+      ? parsed.unsupportedClaims.map(String)
+      : [];
+    return {
+      suggestedNarrative: suggested,
+      warnings: [...warnings, ...aiWarnings],
+      unsupportedClaims: [...unsupportedClaims, ...aiUnsupported],
+    };
+  } catch {
+    const suggestedNarrative = fallbackNarrativeFromMemo({
+      previousNarrative: input.previousNarrative,
+      changeMemo: input.changeMemo,
+    });
+    return {
+      suggestedNarrative: input.hasEvidence
+        ? suggestedNarrative
+        : `${suggestedNarrative} [확인 필요]`,
+      warnings: [
+        ...warnings,
+        "OpenAI 호출에 실패하여 규칙 기반으로 전년 서술에 수정 메모를 반영했습니다.",
+      ],
+      unsupportedClaims,
+    };
+  }
+}
+
+/**
+ * Build this-year narrative by revising previous-year disclosure with the change memo.
+ * Optionally auto-applies to the current content_version.narrative.
+ */
+export async function generateNarrativeUpdate(
+  blockId: string,
+  options?: {
+    changeMemo?: string | null;
+    /** When true (default), write suggested narrative onto current version. */
+    apply?: boolean;
+  },
+) {
   const detail = await getBlockDetail(blockId);
   if (!detail?.current || !detail.previous) {
     throw new Error("이전/현재 버전이 필요합니다.");
   }
-  const change = await latestSuggestion(detail.current.id, "CHANGE_SUMMARY");
-  const currentFacts = await getKeyFacts(detail.current.id);
-  const prevNarrative =
-    detail.previous.narrative ??
-    `${detail.block.title}에 대한 전년 서술이 없습니다.`;
 
-  let suggestedNarrative = prevNarrative;
-  const storeChange = currentFacts.find((f) => f.key === "적용 매장");
-  if (storeChange?.value_number != null) {
-    suggestedNarrative = `위해상품 판매차단 시스템을 운영하고 있으며, 적용 매장은 ${storeChange.value_number}개입니다. 모의훈련은 반기 1회 실시합니다.`;
-  } else if (change?.payload && typeof change.payload === "object") {
-    const summary = (change.payload as ChangeSummaryPayload).summary;
-    suggestedNarrative = `${prevNarrative}\n\n[2027 업데이트] ${summary}`;
-  }
-
-  const payload: NarrativePayload = {
-    suggestedNarrative,
-    warnings: [],
-    unsupportedClaims: [],
-  };
-
-  if (detail.evidences.length === 0) {
-    payload.warnings.push(
-      "연결된 Evidence가 없어 일부 주장에 [확인 필요] 표시가 필요할 수 있습니다.",
+  const changeMemo = (
+    options?.changeMemo ??
+    detail.current.narrative ??
+    ""
+  ).trim();
+  if (!changeMemo) {
+    throw new Error(
+      "수정 메모가 없습니다. Current Year에 변경 내용을 입력한 뒤 다시 시도하세요.",
     );
-    payload.suggestedNarrative += " [확인 필요]";
   }
+
+  const change = await latestSuggestion(detail.current.id, "CHANGE_SUMMARY");
+  const changeSummary =
+    change?.payload && typeof change.payload === "object"
+      ? String((change.payload as ChangeSummaryPayload).summary ?? "") || null
+      : detail.current.change_summary;
+
+  const previousFacts = await getKeyFacts(detail.previous.id);
+  const currentFacts = await getKeyFacts(detail.current.id);
+
+  const payload = await buildNarrativeFromMemo({
+    blockTitle: detail.block.title,
+    reportingYear: detail.current.reporting_year,
+    previousNarrative: detail.previous.narrative ?? "",
+    changeMemo,
+    changeSummary,
+    previousFacts,
+    currentFacts,
+    hasEvidence: detail.evidences.length > 0,
+  });
 
   await supersedePending(detail.current.id, "NARRATIVE_UPDATE");
   const user = isSupabaseConfigured()
     ? await getSessionUser()
     : getPilotCurrentUser();
 
-  return insertSuggestion({
+  const suggestion = await insertSuggestion({
     id: newId(),
     content_version_id: detail.current.id,
     suggestion_type: "NARRATIVE_UPDATE",
@@ -287,7 +424,19 @@ export async function generateNarrativeUpdate(blockId: string) {
     updated_at: touch(),
     applied_at: null,
   });
+
+  const shouldApply = options?.apply !== false;
+  if (shouldApply) {
+    await applySuggestion(suggestion.id);
+  }
+
+  return {
+    suggestion,
+    narrative: payload.suggestedNarrative,
+    warnings: payload.warnings,
+  };
 }
+
 
 export type EvidenceCheckPayload = {
   checks: Array<{

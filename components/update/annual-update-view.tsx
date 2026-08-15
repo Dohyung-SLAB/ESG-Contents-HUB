@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 import {
   actionApplySuggestion,
@@ -54,6 +55,7 @@ export function AnnualUpdateView({
 }) {
   const canEdit =
     canEditProp ?? (role === "ADMIN" || role === "CONTRIBUTOR");
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -67,6 +69,20 @@ export function AnnualUpdateView({
   const [relationship, setRelationship] =
     useState<EvidenceRelationshipType>("SUPPORTING");
   const [dragOver, setDragOver] = useState(false);
+
+  useEffect(() => {
+    setNarrative(detail.current?.narrative ?? "");
+    setChangeType(
+      detail.current?.change_type === "PENDING"
+        ? "MODIFIED"
+        : (detail.current?.change_type ?? "MODIFIED"),
+    );
+  }, [
+    detail.current?.id,
+    detail.current?.narrative,
+    detail.current?.change_type,
+    detail.current?.updated_at,
+  ]);
 
   const initialFacts: FactDraft[] = useMemo(() => {
     const source =
@@ -102,6 +118,10 @@ export function AnnualUpdateView({
 
   const [facts, setFacts] = useState<FactDraft[]>(initialFacts);
 
+  useEffect(() => {
+    setFacts(initialFacts);
+  }, [initialFacts]);
+
   function run(action: () => Promise<unknown>, okMessage: string) {
     setError(null);
     setMessage(null);
@@ -109,17 +129,24 @@ export function AnnualUpdateView({
       try {
         await action();
         setMessage(okMessage);
+        router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : "요청 처리 중 오류가 발생했습니다.");
       }
     });
   }
 
+  function changeMemoText() {
+    // Prefer the change memo field; fall back to draft narrative if memo empty
+    return (notes.trim() || narrative.trim());
+  }
+
   function toPayload() {
     return {
       blockId: detail.block.code,
       change_type: changeType,
-      narrative: narrative || notes || null,
+      // Prefer updated narrative result; keep memo only as fallback before generate
+      narrative: narrative.trim() || notes.trim() || null,
       key_facts: facts.map((f, i) => ({
         key: f.key,
         value_text: f.value_text || null,
@@ -292,6 +319,9 @@ export function AnnualUpdateView({
               onChange={setFacts}
               notes={notes}
               onNotes={setNotes}
+              narrative={narrative}
+              onNarrative={setNarrative}
+              canEdit={canEdit}
             />
           </div>
 
@@ -385,6 +415,10 @@ export function AnnualUpdateView({
 
       <section className="rounded-lg border bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold">AI Assist</h2>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Narrative는 Current Year에 입력한 수정 메모를 기준으로 전년 서술을
+          고쳐 올해 본문에 반영합니다. (생성 시 자동 저장)
+        </p>
         <div className="mb-3 flex flex-wrap gap-2">
           <Button
             variant="outline"
@@ -402,10 +436,23 @@ export function AnnualUpdateView({
             variant="outline"
             disabled={pending || !canEdit}
             onClick={() =>
-              run(
-                () => actionGenerateNarrative(detail.block.code),
-                "Narrative suggestion generated",
-              )
+              run(async () => {
+                const memo = changeMemoText();
+                if (!memo) {
+                  throw new Error(
+                    "수정 메모를 먼저 입력하세요. (서술형 변경 메모 또는 Optional narrative draft)",
+                  );
+                }
+                // Persist memo + facts first so server/AI see the same draft
+                await actionSaveDraft(toPayload());
+                const result = await actionGenerateNarrative(
+                  detail.block.code,
+                  memo,
+                );
+                if (result?.narrative) {
+                  setNarrative(result.narrative);
+                }
+              }, "전년 서술에 수정 메모를 반영해 올해 서술로 저장했습니다")
             }
           >
             Generate / Regenerate Narrative
@@ -463,11 +510,19 @@ export function AnnualUpdateView({
             canEdit={canEdit}
             editableKey="suggestedNarrative"
             onApply={() =>
-              run(
-                () =>
-                  actionApplySuggestion(narrativeSuggestion.id, detail.block.code),
-                "Narrative applied",
-              )
+              run(async () => {
+                const applied = await actionApplySuggestion(
+                  narrativeSuggestion.id,
+                  detail.block.code,
+                );
+                const text = String(
+                  (applied?.payload as { suggestedNarrative?: string } | null)
+                    ?.suggestedNarrative ?? "",
+                );
+                if (text) {
+                  setNarrative(text);
+                }
+              }, "Narrative applied")
             }
             onReject={() =>
               run(

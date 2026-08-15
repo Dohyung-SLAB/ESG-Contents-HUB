@@ -59,16 +59,35 @@ function FactEditor({ facts, onChange, hint }: FactsProps) {
   );
 }
 
-export function NarrativeUpdateForm(props: FactsProps & { notes: string; onNotes: (v: string) => void }) {
+export function NarrativeUpdateForm(
+  props: FactsProps & {
+    notes: string;
+    onNotes: (v: string) => void;
+    narrative?: string;
+    onNarrative?: (v: string) => void;
+    canEdit?: boolean;
+  },
+) {
   return (
     <div className="space-y-3">
       <Label>서술형 변경 메모 (전문 재작성 금지)</Label>
       <textarea
         className="min-h-20 w-full rounded-md border p-2 text-sm"
         value={props.notes}
+        disabled={props.canEdit === false}
         onChange={(e) => props.onNotes(e.target.value)}
-        placeholder="변경된 사실만 간단히 기록하세요"
+        placeholder="전년 대비 바뀐 사실만 간단히 기록하세요"
       />
+      <div className="space-y-1">
+        <Label>올해 서술 (전년 본문 + 수정 메모 반영 결과)</Label>
+        <textarea
+          className="min-h-32 w-full rounded-md border p-2 text-sm"
+          value={props.narrative ?? ""}
+          disabled={props.canEdit === false}
+          onChange={(e) => props.onNarrative?.(e.target.value)}
+          placeholder="Generate Narrative를 누르면 전년 서술이 수정 메모 기준으로 여기에 갱신됩니다"
+        />
+      </div>
       <FactEditor {...props} hint="관련 Key Facts" />
     </div>
   );
@@ -146,6 +165,9 @@ export function UpdateTypeForm({
   onChange,
   notes,
   onNotes,
+  narrative,
+  onNarrative,
+  canEdit,
 }: {
   updateType: string;
   formSchema: Record<string, unknown>;
@@ -153,6 +175,9 @@ export function UpdateTypeForm({
   onChange: (facts: FactDraft[]) => void;
   notes: string;
   onNotes: (v: string) => void;
+  narrative?: string;
+  onNarrative?: (v: string) => void;
+  canEdit?: boolean;
 }) {
   const schemaFields = Array.isArray((formSchema as { fields?: unknown }).fields)
     ? ((formSchema as { fields: FormSchemaField[] }).fields)
@@ -182,6 +207,15 @@ export function UpdateTypeForm({
       return <CertificationUpdateForm {...common} />;
     case "NARRATIVE":
     default:
-      return <NarrativeUpdateForm {...common} notes={notes} onNotes={onNotes} />;
+      return (
+        <NarrativeUpdateForm
+          {...common}
+          notes={notes}
+          onNotes={onNotes}
+          narrative={narrative}
+          onNarrative={onNarrative}
+          canEdit={canEdit}
+        />
+      );
   }
 }
