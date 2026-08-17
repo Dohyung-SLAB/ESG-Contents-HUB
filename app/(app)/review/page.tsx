@@ -45,7 +45,7 @@ export default async function ReviewPage({
     <div>
       <PageHeader
         title="Review"
-        description="제출된 콘텐츠를 검토하고 승인·반려합니다."
+        description="제출된 콘텐츠가 모두 여기에 모입니다. 검토 후 승인·반려하세요."
       />
       <Suspense fallback={<p>Loading…</p>}>
         <ReviewView

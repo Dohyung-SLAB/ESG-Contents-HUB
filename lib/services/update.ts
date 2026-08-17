@@ -13,11 +13,11 @@ import type { KeyFact } from "@/types/database";
 import type { ChangeType, ContentStatus } from "@/types/enums";
 
 const ALLOWED: Record<ContentStatus, ContentStatus[]> = {
-  NOT_STARTED: ["IN_PROGRESS"],
+  NOT_STARTED: ["IN_PROGRESS", "SUBMITTED"],
   IN_PROGRESS: ["IN_PROGRESS", "SUBMITTED"],
   SUBMITTED: ["UNDER_REVIEW"],
   UNDER_REVIEW: ["APPROVED", "REVISION_REQUESTED"],
-  REVISION_REQUESTED: ["IN_PROGRESS"],
+  REVISION_REQUESTED: ["IN_PROGRESS", "SUBMITTED"],
   APPROVED: [],
   ARCHIVED: [],
 };
@@ -71,18 +71,32 @@ export async function saveAnnualUpdateDraft(input: UpdateDraftInput) {
   const before = { ...version };
 
   let nextStatus = version.status;
-  if (version.status === "NOT_STARTED") {
+  if (input.submit) {
+    // One-click submit from draft states → Review queue
+    if (
+      version.status === "NOT_STARTED" ||
+      version.status === "IN_PROGRESS" ||
+      version.status === "REVISION_REQUESTED"
+    ) {
+      assertTransition(version.status, "SUBMITTED");
+      nextStatus = "SUBMITTED";
+    } else if (version.status === "SUBMITTED") {
+      // already submitted — keep
+      nextStatus = "SUBMITTED";
+    } else {
+      throw new Error(
+        `현재 상태(${version.status})에서는 제출할 수 없습니다.`,
+      );
+    }
+  } else if (version.status === "NOT_STARTED") {
     assertTransition(version.status, "IN_PROGRESS");
     nextStatus = "IN_PROGRESS";
-  } else if (input.submit) {
-    assertTransition(version.status, "SUBMITTED");
-    nextStatus = "SUBMITTED";
   } else if (version.status === "REVISION_REQUESTED") {
     assertTransition(version.status, "IN_PROGRESS");
     nextStatus = "IN_PROGRESS";
   } else if (version.status === "IN_PROGRESS") {
     // stay
-  } else if (!input.submit) {
+  } else {
     throw new Error(
       `현재 상태(${version.status})에서는 초안을 저장할 수 없습니다.`,
     );
@@ -166,16 +180,28 @@ function saveAnnualUpdateDraftPilot(input: UpdateDraftInput) {
   }
   const before = { ...version };
   let nextStatus = version.status;
-  if (version.status === "NOT_STARTED") {
+  if (input.submit) {
+    if (
+      version.status === "NOT_STARTED" ||
+      version.status === "IN_PROGRESS" ||
+      version.status === "REVISION_REQUESTED"
+    ) {
+      assertTransition(version.status, "SUBMITTED");
+      nextStatus = "SUBMITTED";
+    } else if (version.status === "SUBMITTED") {
+      nextStatus = "SUBMITTED";
+    } else {
+      throw new Error(
+        `현재 상태(${version.status})에서는 제출할 수 없습니다.`,
+      );
+    }
+  } else if (version.status === "NOT_STARTED") {
     assertTransition(version.status, "IN_PROGRESS");
     nextStatus = "IN_PROGRESS";
-  } else if (input.submit) {
-    assertTransition(version.status, "SUBMITTED");
-    nextStatus = "SUBMITTED";
   } else if (version.status === "REVISION_REQUESTED") {
     assertTransition(version.status, "IN_PROGRESS");
     nextStatus = "IN_PROGRESS";
-  } else if (version.status !== "IN_PROGRESS" && !input.submit) {
+  } else if (version.status !== "IN_PROGRESS") {
     throw new Error(
       `현재 상태(${version.status})에서는 초안을 저장할 수 없습니다.`,
     );

@@ -6,11 +6,16 @@ import {
 import { getSessionUser } from "@/lib/data/session";
 import { writeAuditLog } from "@/lib/services/audit";
 import { getBlockDetail } from "@/lib/services/library";
+import {
+  getActiveWorkspace,
+  listIssuesForActiveProject,
+} from "@/lib/services/projects";
 import { assertTransition } from "@/lib/services/update";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { ContentStatus, ReviewAction } from "@/types/enums";
 
+/** Versions that belong on the Review queue (submitted for review). */
 const QUEUE_STATUSES: ContentStatus[] = [
   "SUBMITTED",
   "UNDER_REVIEW",
@@ -30,36 +35,52 @@ export async function listReviewQueue(
     return listReviewQueuePilot(filters);
   }
 
+  const { project } = await getActiveWorkspace();
+  const issues = await listIssuesForActiveProject();
+  const issueIds = issues.map((i) => i.id);
+  if (issueIds.length === 0) return [];
+
   const admin = createSupabaseAdminClient();
+  const { data: projectBlocks, error: bErr } = await admin
+    .from("content_blocks")
+    .select("*")
+    .in("issue_id", issueIds)
+    .eq("is_active", true);
+  if (bErr) throw new Error(bErr.message);
+
+  const blocks = projectBlocks ?? [];
+  const blockIds = blocks.map((b) => b.id);
+  if (blockIds.length === 0) return [];
+
   const { data: versions, error } = await admin
     .from("content_versions")
     .select("*")
-    .eq("reporting_year", 2027)
-    .in("status", QUEUE_STATUSES);
+    .eq("reporting_year", project.reporting_year)
+    .in("content_block_id", blockIds)
+    .in("status", QUEUE_STATUSES)
+    .order("updated_at", { ascending: false });
   if (error) throw new Error(error.message);
 
-  const blockIds = [...new Set((versions ?? []).map((v) => v.content_block_id))];
-  const [{ data: blocks }, { data: issues }, { data: profiles }] =
-    await Promise.all([
-      blockIds.length
-        ? admin.from("content_blocks").select("*").in("id", blockIds)
-        : Promise.resolve({ data: [] }),
-      admin.from("issues").select("*"),
-      admin.from("profiles").select("*"),
-    ]);
+  const [{ data: allIssues }, { data: profiles }] = await Promise.all([
+    admin.from("issues").select("*").in("id", issueIds),
+    admin.from("profiles").select("*"),
+  ]);
 
-  const blockMap = new Map((blocks ?? []).map((b) => [b.id, b]));
-  const issueMap = new Map((issues ?? []).map((i) => [i.id, i]));
+  const blockMap = new Map(blocks.map((b) => [b.id, b]));
+  const issueMap = new Map((allIssues ?? []).map((i) => [i.id, i]));
   const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
 
-  const rows = (versions ?? []).map((version) => {
-    const block = blockMap.get(version.content_block_id)!;
-    const issue = issueMap.get(block.issue_id);
-    const owner = block.owner_user_id
-      ? profileMap.get(block.owner_user_id)
-      : null;
-    return { version, block, issue, owner_name: owner?.full_name ?? null };
-  });
+  const rows = (versions ?? [])
+    .map((version) => {
+      const block = blockMap.get(version.content_block_id);
+      if (!block) return null;
+      const issue = issueMap.get(block.issue_id);
+      const owner = block.owner_user_id
+        ? profileMap.get(block.owner_user_id)
+        : null;
+      return { version, block, issue, owner_name: owner?.full_name ?? null };
+    })
+    .filter((row): row is NonNullable<typeof row> => row != null);
 
   return rows.filter((row) => {
     if (filters.issue && row.issue?.name !== filters.issue) return false;
@@ -88,18 +109,32 @@ function listReviewQueuePilot(filters: {
   change_type?: string;
 }) {
   const store = getPilotStore();
+  const project = store.projects.find((p) => p.id === store.active_project_id);
+  const reportingYear = project?.reporting_year ?? 2027;
+  const issueIds = new Set(
+    store.issues
+      .filter((i) => i.project_id === store.active_project_id)
+      .map((i) => i.id),
+  );
+
   const rows = store.content_versions
     .filter(
-      (v) => v.reporting_year === 2027 && QUEUE_STATUSES.includes(v.status),
+      (v) =>
+        v.reporting_year === reportingYear &&
+        QUEUE_STATUSES.includes(v.status),
     )
     .map((version) => {
       const block = store.content_blocks.find(
         (b) => b.id === version.content_block_id,
-      )!;
+      );
+      if (!block || !issueIds.has(block.issue_id)) return null;
       const issue = store.issues.find((i) => i.id === block.issue_id);
       const owner = store.profiles.find((p) => p.id === block.owner_user_id);
       return { version, block, issue, owner_name: owner?.full_name ?? null };
-    });
+    })
+    .filter((row): row is NonNullable<typeof row> => row != null)
+    .sort((a, b) => b.version.updated_at.localeCompare(a.version.updated_at));
+
   return rows.filter((row) => {
     if (filters.issue && row.issue?.name !== filters.issue) return false;
     if (
@@ -241,7 +276,11 @@ function performReviewActionPilot(input: {
     ) ?? null;
   if (!block) throw new Error("버전을 찾을 수 없습니다.");
   const version = store.content_versions.find(
-    (v) => v.content_block_id === block.id && v.reporting_year === 2027,
+    (v) =>
+      v.content_block_id === block.id &&
+      v.reporting_year ===
+        (store.projects.find((p) => p.id === store.active_project_id)
+          ?.reporting_year ?? v.reporting_year),
   );
   if (!version) throw new Error("버전을 찾을 수 없습니다.");
   const before = { ...version };

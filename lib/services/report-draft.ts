@@ -35,12 +35,57 @@ export type ReportDraftBlock = {
   key_facts: KeyFact[];
 };
 
+export type ReportDraftSection = {
+  /** TOC / extraction section title (e.g. 소비자 신뢰 확보) */
+  title: string;
+  blocks: ReportDraftBlock[];
+};
+
 export type ReportDraftModel = {
   companyName: string;
   projectName: string;
   reportingYear: number;
+  /** Flat list (DOCX + legacy) */
   blocks: ReportDraftBlock[];
+  /** Grouped by content_blocks.section (TOC) */
+  sections: ReportDraftSection[];
 };
+
+function groupBlocksByTocSection(
+  blocks: ReportDraftBlock[],
+): ReportDraftSection[] {
+  const order: string[] = [];
+  const map = new Map<string, ReportDraftBlock[]>();
+  for (const item of blocks) {
+    const title =
+      item.block.section?.trim() ||
+      item.issue?.name?.trim() ||
+      "기타";
+    if (!map.has(title)) {
+      map.set(title, []);
+      order.push(title);
+    }
+    map.get(title)!.push(item);
+  }
+  return order.map((title) => ({
+    title,
+    blocks: map.get(title)!,
+  }));
+}
+
+function emptyModel(
+  companyName: string,
+  projectName: string,
+  reportingYear: number,
+): ReportDraftModel {
+  return {
+    companyName,
+    projectName,
+    reportingYear,
+    blocks: [],
+    sections: [],
+  };
+}
 
 export async function buildReportDraftModel(options?: {
   approvedOnly?: boolean;
@@ -53,12 +98,7 @@ export async function buildReportDraftModel(options?: {
   const reportingYear = project.reporting_year;
 
   if (issueIds.length === 0) {
-    return {
-      companyName: company.name,
-      projectName: project.name,
-      reportingYear,
-      blocks: [],
-    };
+    return emptyModel(company.name, project.name, reportingYear);
   }
 
   if (!isSupabaseConfigured()) {
@@ -96,6 +136,7 @@ export async function buildReportDraftModel(options?: {
       projectName: project.name,
       reportingYear,
       blocks: draftBlocks,
+      sections: groupBlocksByTocSection(draftBlocks),
     };
   }
 
@@ -110,12 +151,7 @@ export async function buildReportDraftModel(options?: {
   const blockList = (blocks ?? []) as ContentBlock[];
   const blockIds = blockList.map((b) => b.id);
   if (blockIds.length === 0) {
-    return {
-      companyName: company.name,
-      projectName: project.name,
-      reportingYear,
-      blocks: [],
-    };
+    return emptyModel(company.name, project.name, reportingYear);
   }
 
   const { data: versions } = await admin
@@ -155,6 +191,7 @@ export async function buildReportDraftModel(options?: {
     projectName: project.name,
     reportingYear,
     blocks: draftBlocks,
+    sections: groupBlocksByTocSection(draftBlocks),
   };
 }
 
@@ -182,58 +219,80 @@ export async function generateReportDocx(
     new Paragraph({ text: "목차", heading: HeadingLevel.HEADING_1 }),
   ];
 
-  model.blocks.forEach((b, idx) => {
+  const sections =
+    model.sections.length > 0
+      ? model.sections
+      : groupBlocksByTocSection(model.blocks);
+
+  sections.forEach((section, sIdx) => {
     children.push(
       new Paragraph({
-        text: `${idx + 1}. ${b.block.title}`,
+        text: `${sIdx + 1}. ${section.title}`,
+        heading: HeadingLevel.HEADING_2,
       }),
     );
+    section.blocks.forEach((b, bIdx) => {
+      children.push(
+        new Paragraph({
+          text: `  ${sIdx + 1}.${bIdx + 1} ${b.block.title}`,
+        }),
+      );
+    });
   });
 
   children.push(new Paragraph({ text: "" }));
 
-  for (const [idx, item] of model.blocks.entries()) {
+  for (const [sIdx, section] of sections.entries()) {
     children.push(
       new Paragraph({
-        text: `${idx + 1}. ${item.block.title}`,
+        text: `${sIdx + 1}. ${section.title}`,
         heading: HeadingLevel.HEADING_1,
       }),
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: `${item.block.code} · ${item.block.section ?? ""} · ${item.block.content_type} · ${statusLabel(item.version.status)}`,
-            size: 18,
-            color: "666666",
-          }),
-        ],
-      }),
-      ...narrativeToDocx(item.version.narrative),
     );
 
-    if (item.key_facts.length > 0) {
-      children.push(
-        new Paragraph({ text: "Key Facts", heading: HeadingLevel.HEADING_2 }),
-      );
-      for (const f of item.key_facts) {
-        const value =
-          f.value_number != null
-            ? `${f.value_number}${f.unit ? ` ${f.unit}` : ""}`
-            : (f.value_text ?? "");
-        children.push(new Paragraph({ text: `• ${f.key}: ${value}` }));
-      }
-    }
-
-    if (item.version.change_summary) {
+    for (const [bIdx, item] of section.blocks.entries()) {
       children.push(
         new Paragraph({
-          text: "Change Summary",
+          text: `${sIdx + 1}.${bIdx + 1} ${item.block.title}`,
           heading: HeadingLevel.HEADING_2,
         }),
-        new Paragraph({ text: item.version.change_summary }),
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `${item.block.code} · ${item.block.content_type} · ${statusLabel(item.version.status)}`,
+              size: 18,
+              color: "666666",
+            }),
+          ],
+        }),
+        ...narrativeToDocx(item.version.narrative),
       );
-    }
 
-    children.push(new Paragraph({ text: "" }));
+      if (item.key_facts.length > 0) {
+        children.push(
+          new Paragraph({ text: "Key Facts", heading: HeadingLevel.HEADING_3 }),
+        );
+        for (const f of item.key_facts) {
+          const value =
+            f.value_number != null
+              ? `${f.value_number}${f.unit ? ` ${f.unit}` : ""}`
+              : (f.value_text ?? "");
+          children.push(new Paragraph({ text: `• ${f.key}: ${value}` }));
+        }
+      }
+
+      if (item.version.change_summary) {
+        children.push(
+          new Paragraph({
+            text: "Change Summary",
+            heading: HeadingLevel.HEADING_3,
+          }),
+          new Paragraph({ text: item.version.change_summary }),
+        );
+      }
+
+      children.push(new Paragraph({ text: "" }));
+    }
   }
 
   const doc = new Document({
