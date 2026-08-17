@@ -51,16 +51,30 @@ export type ReportDraftModel = {
   sections: ReportDraftSection[];
 };
 
+function normalizeTocSectionTitle(raw: string): string {
+  const parts = raw
+    .split(/\s*>\s*/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const deduped: string[] = [];
+  for (const part of parts) {
+    if (deduped[deduped.length - 1] !== part) deduped.push(part);
+  }
+  // Report Draft groups by the top-level TOC title (first segment).
+  return deduped[0] ?? raw.trim() ?? "기타";
+}
+
 function groupBlocksByTocSection(
   blocks: ReportDraftBlock[],
 ): ReportDraftSection[] {
   const order: string[] = [];
   const map = new Map<string, ReportDraftBlock[]>();
   for (const item of blocks) {
-    const title =
+    const title = normalizeTocSectionTitle(
       item.block.section?.trim() ||
-      item.issue?.name?.trim() ||
-      "기타";
+        item.issue?.name?.trim() ||
+        "기타",
+    );
     if (!map.has(title)) {
       map.set(title, []);
       order.push(title);

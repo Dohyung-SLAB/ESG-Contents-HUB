@@ -286,9 +286,10 @@ HARD RULES:
         !ai || aiHangul < Math.min(80, Math.floor(rawHangul * 0.55));
 
       const lockedTitle = seg.title;
-      const sectionPath = seg.parentCategory
-        ? `${input.tocSection} > ${seg.parentCategory}`
-        : input.tocSection;
+      const parent = seg.parentCategory?.trim() ?? "";
+      const toc = input.tocSection.trim();
+      const sectionPath =
+        parent && parent !== toc ? `${toc} > ${parent}` : toc;
       const subTopic =
         seg.kind === "target" && seg.parentContent
           ? seg.parentContent
