@@ -21,6 +21,7 @@ import {
 } from "@/lib/services/evidence";
 import {
   approveCandidate,
+  approveCandidates,
   createExtractionJobFromUpload,
   deleteCandidate,
   mergeCandidates,
@@ -362,6 +363,16 @@ export async function actionApproveCandidate(candidateId: string, jobId: string)
   return result;
 }
 
+export async function actionApproveCandidates(
+  candidateIds: string[],
+  jobId: string,
+) {
+  const result = await approveCandidates(candidateIds);
+  revalidatePath(`/extraction/${jobId}`);
+  revalidatePath("/library");
+  return result;
+}
+
 export async function actionMergeCandidates(ids: string[], jobId: string) {
   const result = await mergeCandidates(ids);
   revalidatePath(`/extraction/${jobId}`);
@@ -385,6 +396,8 @@ export async function actionUpdateCandidate(
     content_type: ContentType;
     update_type: UpdateType;
     narrative: string;
+    esg_frameworks: string[];
+    disclosure_frameworks: string[];
   }>,
   jobId: string,
 ) {

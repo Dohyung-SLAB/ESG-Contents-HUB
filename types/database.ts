@@ -85,6 +85,10 @@ export type ContentBlock = {
   form_schema: FormSchema;
   display_order: number;
   is_active: boolean;
+  /** Human-selected ESG evaluation frameworks (KCGS/MSCI/DJSI) */
+  esg_frameworks: string[];
+  /** Human-selected disclosure frameworks (KSSB/GRI/SASB) */
+  disclosure_frameworks: string[];
   created_at: string;
   updated_at: string;
 };
@@ -212,6 +216,10 @@ export type ExtractionCandidate = {
   source_text: string | null;
   confidence: number | null;
   display_order: number;
+  /** Human-selected ESG evaluation frameworks (KCGS/MSCI/DJSI) */
+  esg_frameworks: string[];
+  /** Human-selected disclosure frameworks (KSSB/GRI/SASB) */
+  disclosure_frameworks: string[];
   created_at: string;
   updated_at: string;
 };

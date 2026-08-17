@@ -93,3 +93,13 @@ create trigger project_invites_set_updated_at
 before update on public.project_invites
 for each row execute function public.set_updated_at();
 
+-- 5) Manual framework tags (ESG eval + disclosure)
+alter table public.extraction_candidates
+  add column if not exists esg_frameworks jsonb not null default '[]'::jsonb;
+alter table public.extraction_candidates
+  add column if not exists disclosure_frameworks jsonb not null default '[]'::jsonb;
+alter table public.content_blocks
+  add column if not exists esg_frameworks jsonb not null default '[]'::jsonb;
+alter table public.content_blocks
+  add column if not exists disclosure_frameworks jsonb not null default '[]'::jsonb;
+

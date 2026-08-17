@@ -160,6 +160,8 @@ function buildInitialStore(): PilotStore {
         : {}) as FormSchema,
       display_order: b.n,
       is_active: true,
+      esg_frameworks: [],
+      disclosure_frameworks: [],
       created_at: ts,
       updated_at: ts,
     };

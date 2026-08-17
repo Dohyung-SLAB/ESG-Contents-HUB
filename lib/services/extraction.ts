@@ -389,6 +389,8 @@ function toDbCandidates(
     source_text: c.sourceText,
     confidence: Math.min(1, Math.max(0, c.confidence ?? 0.7)),
     display_order: i + 1,
+    esg_frameworks: [],
+    disclosure_frameworks: [],
     created_at: ts,
     updated_at: ts,
   }));
@@ -901,6 +903,8 @@ export async function updateCandidate(
     content_type: ContentType;
     update_type: UpdateType;
     narrative: string;
+    esg_frameworks: string[];
+    disclosure_frameworks: string[];
   }>,
 ) {
   if (!isSupabaseConfigured()) {
@@ -921,6 +925,40 @@ export async function updateCandidate(
     .single();
   if (error) throw new Error(error.message);
   return data;
+}
+
+/** Approve many candidates sequentially (bulk / select-all). */
+export async function approveCandidates(candidateIds: string[]) {
+  if (candidateIds.length === 0) {
+    throw new Error("승인할 후보를 선택하세요.");
+  }
+  const results: Array<{ id: string; ok: true } | { id: string; ok: false; error: string }> =
+    [];
+  for (const id of candidateIds) {
+    try {
+      await approveCandidate(id);
+      results.push({ id, ok: true });
+    } catch (e) {
+      results.push({
+        id,
+        ok: false,
+        error: e instanceof Error ? e.message : "승인 실패",
+      });
+    }
+  }
+  const failed = results.filter((r) => !r.ok);
+  if (failed.length === candidateIds.length) {
+    throw new Error(
+      failed[0] && "error" in failed[0]
+        ? failed[0].error
+        : "전체 승인에 실패했습니다.",
+    );
+  }
+  return {
+    approved: results.filter((r) => r.ok).length,
+    failed: failed.length,
+    results,
+  };
 }
 
 export async function deleteCandidate(candidateId: string) {
@@ -1097,6 +1135,8 @@ export async function approveCandidate(candidateId: string, issueId?: string) {
       form_schema: {},
       display_order: store.content_blocks.length + 1,
       is_active: true,
+      esg_frameworks: candidate.esg_frameworks ?? [],
+      disclosure_frameworks: candidate.disclosure_frameworks ?? [],
       created_at: ts,
       updated_at: ts,
     });
@@ -1216,6 +1256,8 @@ export async function approveCandidate(candidateId: string, issueId?: string) {
     form_schema: {},
     display_order: (count ?? 0) + 1,
     is_active: true,
+    esg_frameworks: candidate.esg_frameworks ?? [],
+    disclosure_frameworks: candidate.disclosure_frameworks ?? [],
     created_at: ts,
     updated_at: ts,
   });

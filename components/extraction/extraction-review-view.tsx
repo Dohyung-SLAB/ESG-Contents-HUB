@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import {
   actionApproveCandidate,
+  actionApproveCandidates,
   actionDeleteCandidate,
   actionMergeCandidates,
   actionSplitCandidate,
@@ -21,6 +22,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  DISCLOSURE_FRAMEWORKS,
+  ESG_EVAL_FRAMEWORKS,
+} from "@/lib/frameworks";
 import type { ExtractionCandidate, ExtractionJob } from "@/types/database";
 import type { ExtractionDiagnostics } from "@/lib/services/extraction";
 
@@ -59,6 +64,44 @@ export function ExtractionReviewView({
   function toggle(id: string) {
     setSelected((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  }
+
+  function toggleAll() {
+    if (selected.length === candidates.length) {
+      setSelected([]);
+    } else {
+      setSelected(candidates.map((c) => c.id));
+    }
+  }
+
+  function frameworksOf(c: ExtractionCandidate) {
+    return {
+      esg: Array.isArray(c.esg_frameworks) ? c.esg_frameworks : [],
+      disclosure: Array.isArray(c.disclosure_frameworks)
+        ? c.disclosure_frameworks
+        : [],
+    };
+  }
+
+  function toggleFramework(
+    candidate: ExtractionCandidate,
+    kind: "esg" | "disclosure",
+    value: string,
+  ) {
+    const current = frameworksOf(candidate);
+    const list = kind === "esg" ? current.esg : current.disclosure;
+    const next = list.includes(value)
+      ? list.filter((v) => v !== value)
+      : [...list, value];
+    run(() =>
+      actionUpdateCandidate(
+        candidate.id,
+        kind === "esg"
+          ? { esg_frameworks: next }
+          : { disclosure_frameworks: next },
+        job.id,
+      ),
     );
   }
 
@@ -125,6 +168,45 @@ export function ExtractionReviewView({
       <div className="flex flex-wrap gap-2">
         <Button
           size="sm"
+          disabled={pending || candidates.length === 0}
+          onClick={() =>
+            run(async () => {
+              const result = await actionApproveCandidates(
+                candidates.map((c) => c.id),
+                job.id,
+              );
+              setSelected([]);
+              if (result.failed > 0) {
+                throw new Error(
+                  `${result.approved}개 승인, ${result.failed}개 실패`,
+                );
+              }
+            })
+          }
+        >
+          전체 승인 ({candidates.length})
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={pending || selected.length === 0}
+          onClick={() =>
+            run(async () => {
+              const result = await actionApproveCandidates(selected, job.id);
+              setSelected([]);
+              if (result.failed > 0) {
+                throw new Error(
+                  `${result.approved}개 승인, ${result.failed}개 실패`,
+                );
+              }
+            })
+          }
+        >
+          선택 승인 ({selected.length})
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
           disabled={pending || selected.length < 2}
           onClick={() => run(() => actionMergeCandidates(selected, job.id))}
         >
@@ -153,62 +235,85 @@ export function ExtractionReviewView({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead />
+                <TableHead>
+                  <input
+                    type="checkbox"
+                    checked={
+                      candidates.length > 0 &&
+                      selected.length === candidates.length
+                    }
+                    onChange={toggleAll}
+                    aria-label="전체 선택"
+                  />
+                </TableHead>
                 <TableHead>Suggested Block</TableHead>
                 <TableHead>Section</TableHead>
+                <TableHead>ESG</TableHead>
+                <TableHead>공시</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead>Update</TableHead>
                 <TableHead>Page</TableHead>
-                <TableHead>Confidence</TableHead>
+                <TableHead>Conf.</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {candidates.map((c) => (
-                <TableRow
-                  key={c.id}
-                  className={activeId === c.id ? "bg-slate-50" : undefined}
-                  onClick={() => setActiveId(c.id)}
-                >
-                  <TableCell>
-                    <input
-                      type="checkbox"
-                      checked={selected.includes(c.id)}
-                      onChange={() => toggle(c.id)}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </TableCell>
-                  <TableCell className="font-medium">{c.title}</TableCell>
-                  <TableCell>{c.section}</TableCell>
-                  <TableCell>{c.content_type}</TableCell>
-                  <TableCell>{c.update_type}</TableCell>
-                  <TableCell>{c.source_page}</TableCell>
-                  <TableCell>{c.confidence?.toFixed(2)}</TableCell>
-                  <TableCell className="space-x-1">
-                    <Button
-                      size="sm"
-                      disabled={pending}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        run(() => actionApproveCandidate(c.id, job.id));
-                      }}
-                    >
-                      Approve
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={pending}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        run(() => actionDeleteCandidate(c.id, job.id));
-                      }}
-                    >
-                      Delete
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {candidates.map((c) => {
+                const tags = frameworksOf(c);
+                return (
+                  <TableRow
+                    key={c.id}
+                    className={activeId === c.id ? "bg-slate-50" : undefined}
+                    onClick={() => setActiveId(c.id)}
+                  >
+                    <TableCell>
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(c.id)}
+                        onChange={() => toggle(c.id)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium">{c.title}</TableCell>
+                    <TableCell className="max-w-[140px] truncate text-xs">
+                      {c.section}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {tags.esg.length ? tags.esg.join(", ") : "—"}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {tags.disclosure.length
+                        ? tags.disclosure.join(", ")
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="text-xs">{c.content_type}</TableCell>
+                    <TableCell>{c.source_page}</TableCell>
+                    <TableCell>{c.confidence?.toFixed(2)}</TableCell>
+                    <TableCell className="space-x-1">
+                      <Button
+                        size="sm"
+                        disabled={pending}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          run(() => actionApproveCandidate(c.id, job.id));
+                        }}
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={pending}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          run(() => actionDeleteCandidate(c.id, job.id));
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
@@ -243,6 +348,68 @@ export function ExtractionReviewView({
                   }}
                 />
               </label>
+
+              <div className="space-y-2 rounded-md border p-3">
+                <p className="text-xs font-medium text-[var(--brand-navy)]">
+                  ESG 평가기준 (수동 선택)
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  AI가 판단하지 않습니다. 해당하는 항목만 체크하세요.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  {ESG_EVAL_FRAMEWORKS.map((fw) => {
+                    const checked = frameworksOf(active).esg.includes(fw);
+                    return (
+                      <label
+                        key={fw}
+                        className="flex items-center gap-1.5 text-sm"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={pending}
+                          onChange={() => toggleFramework(active, "esg", fw)}
+                        />
+                        {fw}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="space-y-2 rounded-md border p-3">
+                <p className="text-xs font-medium text-[var(--brand-navy)]">
+                  공시기준 (수동 선택)
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  AI가 판단하지 않습니다. 해당하는 항목만 체크하세요.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  {DISCLOSURE_FRAMEWORKS.map((fw) => {
+                    const checked =
+                      frameworksOf(active).disclosure.includes(fw);
+                    return (
+                      <label
+                        key={fw}
+                        className="flex items-center gap-1.5 text-sm"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={pending}
+                          onChange={() =>
+                            toggleFramework(active, "disclosure", fw)
+                          }
+                        />
+                        {fw}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
               <label className="block space-y-1">
                 <span className="text-xs text-muted-foreground">
                   Content Type (제안값 · 컨텐츠 성격에 맞게 수정)
