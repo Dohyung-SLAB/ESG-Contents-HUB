@@ -4,10 +4,6 @@ import Link from "next/link";
 import { NarrativePreview } from "@/components/extraction/narrative-preview";
 import { PageHeader } from "@/components/layout/page-header";
 import { ReportDraftDownloadButton } from "@/components/report/report-draft-download-button";
-import {
-  FrameworkTagsBadges,
-  FrameworkTagsEditor,
-} from "@/components/shared/framework-tags";
 import { buttonVariants } from "@/components/ui/button";
 import { getSessionUser } from "@/lib/data/session";
 import { canAccessNav } from "@/lib/services/permissions";
@@ -27,13 +23,6 @@ function categoryAnchor(sectionTitle: string, categoryTitle: string) {
   return `cat-${encodeURIComponent(`${sectionTitle}__${categoryTitle}`).replace(/%/g, "")}`;
 }
 
-function formatFact(f: ReportDraftBlock["key_facts"][number]) {
-  if (f.value_number != null) {
-    return `${f.value_number}${f.unit ? ` ${f.unit}` : ""}`;
-  }
-  return f.value_text?.trim() || "";
-}
-
 function ContentArticle({
   item,
   headingLevel,
@@ -42,7 +31,6 @@ function ContentArticle({
   headingLevel: "h3" | "h4";
 }) {
   const narrative = item.version.narrative?.trim() || "";
-  const facts = item.key_facts.filter((f) => formatFact(f));
   const headingClass =
     headingLevel === "h3"
       ? "text-[1.35rem] font-bold tracking-tight text-[#0f2744]"
@@ -56,60 +44,14 @@ function ContentArticle({
         <h4 className={headingClass}>{item.block.title}</h4>
       )}
 
-      <FrameworkTagsBadges
-        className="mt-2"
-        esgFrameworks={item.block.esg_frameworks}
-        disclosureFrameworks={item.block.disclosure_frameworks}
-      />
-
       {narrative ? (
         <NarrativePreview
           narrative={narrative}
-          className="mt-4 space-y-4 text-[0.95rem] leading-[1.85] text-[#1f2937]"
+          className="mt-3 space-y-3 text-[0.95rem] leading-[1.85] text-[#1f2937]"
         />
       ) : (
-        <p className="mt-4 text-sm text-muted-foreground">(서술 없음)</p>
+        <p className="mt-3 text-sm text-muted-foreground">(서술 없음)</p>
       )}
-
-      {facts.length > 0 ? (
-        <div className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {facts.map((f) => (
-            <div
-              key={f.id}
-              className="flex items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm"
-            >
-              <span className="min-w-0 truncate font-medium text-[#0f2744]">
-                {f.key}
-              </span>
-              <span className="shrink-0 text-slate-600">{formatFact(f)}</span>
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      <details className="mt-4 rounded-md border border-slate-200 bg-slate-50/60 p-3">
-        <summary className="cursor-pointer text-xs font-medium text-[var(--brand-navy)]">
-          평가·공시 기준 수정
-        </summary>
-        <FrameworkTagsEditor
-          className="mt-3"
-          blockId={item.block.id}
-          esgFrameworks={item.block.esg_frameworks}
-          disclosureFrameworks={item.block.disclosure_frameworks}
-        />
-      </details>
-
-      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
-        <span>
-          {item.block.code} · {item.version.status}
-        </span>
-        <Link
-          href={`/update/${item.block.code}`}
-          className="text-[var(--brand-navy)] underline-offset-2 hover:underline"
-        >
-          Annual Update 열기
-        </Link>
-      </div>
     </article>
   );
 }
