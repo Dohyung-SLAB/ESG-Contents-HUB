@@ -6,6 +6,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { actionAssignOwnerDepartment } from "@/lib/actions";
 import { ChangeTypeBadge, StatusBadge } from "@/components/shared/status-badge";
+import {
+  FrameworkTagsBadges,
+  FrameworkTagsEditor,
+} from "@/components/shared/framework-tags";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -233,8 +237,9 @@ export function LibraryView({
                 <TableHead>Content Block</TableHead>
                 <TableHead>Section</TableHead>
                 <TableHead>Content Type</TableHead>
+                <TableHead>Frameworks</TableHead>
                 <TableHead>Dept</TableHead>
-              <TableHead>Owner</TableHead>
+                <TableHead>Owner</TableHead>
                 <TableHead>Update Type</TableHead>
                 <TableHead>Change</TableHead>
                 <TableHead>Status</TableHead>
@@ -244,7 +249,7 @@ export function LibraryView({
             <TableBody>
               {rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-muted-foreground">
+                  <TableCell colSpan={11} className="text-muted-foreground">
                     No content blocks match the current filters.
                   </TableCell>
                 </TableRow>
@@ -262,6 +267,12 @@ export function LibraryView({
                     <TableCell className="font-medium">{row.title}</TableCell>
                     <TableCell>{row.section}</TableCell>
                     <TableCell>{row.content_type}</TableCell>
+                    <TableCell>
+                      <FrameworkTagsBadges
+                        esgFrameworks={row.esg_frameworks}
+                        disclosureFrameworks={row.disclosure_frameworks}
+                      />
+                    </TableCell>
                     <TableCell>{row.owner_department ?? "—"}</TableCell>
                     <TableCell>{row.owner_name ?? "—"}</TableCell>
                     <TableCell>{row.update_type}</TableCell>
@@ -314,6 +325,11 @@ export function LibraryView({
                 value={selected.current?.status ?? "—"}
               />
             </div>
+            <FrameworkTagsEditor
+              blockId={selected.block.id}
+              esgFrameworks={selected.block.esg_frameworks}
+              disclosureFrameworks={selected.block.disclosure_frameworks}
+            />
             {canAssignDepartment ? (
               <AssignDepartmentForm
                 key={selected.block.id}

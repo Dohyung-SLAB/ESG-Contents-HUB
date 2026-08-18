@@ -395,6 +395,42 @@ export async function resolveBlockId(
   return byCode?.id ?? null;
 }
 
+/** Persist human-selected ESG evaluation / disclosure framework tags on a content block. */
+export async function updateContentBlockFrameworks(
+  blockIdOrCode: string,
+  patch: {
+    esg_frameworks: string[];
+    disclosure_frameworks: string[];
+  },
+): Promise<ContentBlock> {
+  const resolved = await resolveBlockId(blockIdOrCode);
+  if (!resolved) throw new Error("콘텐츠 블록을 찾을 수 없습니다.");
+
+  if (!isSupabaseConfigured()) {
+    const store = getPilotStore();
+    const block = store.content_blocks.find((b) => b.id === resolved);
+    if (!block) throw new Error("콘텐츠 블록을 찾을 수 없습니다.");
+    block.esg_frameworks = patch.esg_frameworks;
+    block.disclosure_frameworks = patch.disclosure_frameworks;
+    block.updated_at = touch();
+    return block;
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("content_blocks")
+    .update({
+      esg_frameworks: patch.esg_frameworks,
+      disclosure_frameworks: patch.disclosure_frameworks,
+      updated_at: touch(),
+    })
+    .eq("id", resolved)
+    .select("*")
+    .single();
+  if (error) throw new Error(error.message);
+  return data as ContentBlock;
+}
+
 export async function getCompanyAndProject() {
   const { company, project } = await getActiveWorkspace();
   return { company, project };

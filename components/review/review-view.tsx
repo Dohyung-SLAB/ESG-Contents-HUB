@@ -5,6 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { EvidenceCheckBody } from "@/components/shared/evidence-check-body";
+import {
+  FrameworkTagsBadges,
+  FrameworkTagsEditor,
+} from "@/components/shared/framework-tags";
 import { actionReview } from "@/lib/actions";
 import { ChangeTypeBadge, StatusBadge } from "@/components/shared/status-badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -26,13 +30,26 @@ type QueueRow = {
     status: ContentStatus;
     change_type: string;
   };
-  block: { id: string; code: string; title: string; content_type: string };
+  block: {
+    id: string;
+    code: string;
+    title: string;
+    content_type: string;
+    esg_frameworks?: string[] | null;
+    disclosure_frameworks?: string[] | null;
+  };
   issue: { name: string } | null | undefined;
   owner_name: string | null;
 };
 
 type Detail = {
-  block: { id: string; code: string; title: string };
+  block: {
+    id: string;
+    code: string;
+    title: string;
+    esg_frameworks?: string[] | null;
+    disclosure_frameworks?: string[] | null;
+  };
   previous: { narrative: string | null } | null;
   current: { narrative: string | null; status: ContentStatus } | null;
   previous_key_facts: KeyFact[];
@@ -176,6 +193,7 @@ export function ReviewView({
               <TableRow>
                 <TableHead>Code</TableHead>
                 <TableHead>Title</TableHead>
+                <TableHead>Frameworks</TableHead>
                 <TableHead>Owner</TableHead>
                 <TableHead>Change</TableHead>
                 <TableHead>Status</TableHead>
@@ -184,7 +202,7 @@ export function ReviewView({
             <TableBody>
               {queue.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-muted-foreground">
+                  <TableCell colSpan={6} className="text-muted-foreground">
                     No items in review queue.
                   </TableCell>
                 </TableRow>
@@ -200,6 +218,12 @@ export function ReviewView({
                       </Link>
                     </TableCell>
                     <TableCell>{row.block.title}</TableCell>
+                    <TableCell>
+                      <FrameworkTagsBadges
+                        esgFrameworks={row.block.esg_frameworks}
+                        disclosureFrameworks={row.block.disclosure_frameworks}
+                      />
+                    </TableCell>
                     <TableCell>{row.owner_name ?? "—"}</TableCell>
                     <TableCell>
                       <ChangeTypeBadge
@@ -233,6 +257,11 @@ export function ReviewView({
               <h2 className="text-lg font-semibold text-[var(--brand-navy)]">
                 {detail.block.code} · {detail.block.title}
               </h2>
+              <FrameworkTagsEditor
+                blockId={detail.block.id}
+                esgFrameworks={detail.block.esg_frameworks}
+                disclosureFrameworks={detail.block.disclosure_frameworks}
+              />
               {error ? <p className="text-destructive">{error}</p> : null}
 
               <div className="grid gap-3 md:grid-cols-2">

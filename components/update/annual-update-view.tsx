@@ -8,6 +8,7 @@ import {
   actionSaveDraft,
   actionUploadEvidence,
 } from "@/lib/actions";
+import { FrameworkTagsEditor } from "@/components/shared/framework-tags";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -175,6 +176,13 @@ export function AnnualUpdateView({
           {detail.block.code} · {detail.block.title}
         </span>
       </div>
+
+      <FrameworkTagsEditor
+        blockId={detail.block.id}
+        esgFrameworks={detail.block.esg_frameworks}
+        disclosureFrameworks={detail.block.disclosure_frameworks}
+        editable={canEdit || role === "REVIEWER"}
+      />
 
       {!canEdit ? (
         <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">

@@ -45,7 +45,13 @@ import {
   deleteProject,
   switchActiveProject,
 } from "@/lib/services/projects";
+import { updateContentBlockFrameworks } from "@/lib/services/library";
 import { saveAnnualUpdateDraft } from "@/lib/services/update";
+import {
+  DISCLOSURE_FRAMEWORKS,
+  ESG_EVAL_FRAMEWORKS,
+  normalizeFrameworkList,
+} from "@/lib/frameworks";
 import type { ChangeType, ReviewAction, UserRole } from "@/types/enums";
 import type { ContentType, EvidenceRelationshipType, UpdateType } from "@/types/enums";
 
@@ -403,6 +409,31 @@ export async function actionUpdateCandidate(
 ) {
   const result = await updateCandidate(id, patch);
   revalidatePath(`/extraction/${jobId}`);
+  return result;
+}
+
+export async function actionUpdateBlockFrameworks(
+  blockId: string,
+  patch: {
+    esg_frameworks: string[];
+    disclosure_frameworks: string[];
+  },
+) {
+  const result = await updateContentBlockFrameworks(blockId, {
+    esg_frameworks: normalizeFrameworkList(
+      patch.esg_frameworks,
+      ESG_EVAL_FRAMEWORKS,
+    ),
+    disclosure_frameworks: normalizeFrameworkList(
+      patch.disclosure_frameworks,
+      DISCLOSURE_FRAMEWORKS,
+    ),
+  });
+  revalidatePath("/library");
+  revalidatePath("/review");
+  revalidatePath("/report-draft");
+  revalidatePath(`/update/${result.code}`);
+  revalidatePath("/update");
   return result;
 }
 

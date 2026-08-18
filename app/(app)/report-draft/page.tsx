@@ -4,6 +4,10 @@ import Link from "next/link";
 import { NarrativePreview } from "@/components/extraction/narrative-preview";
 import { PageHeader } from "@/components/layout/page-header";
 import { ReportDraftDownloadButton } from "@/components/report/report-draft-download-button";
+import {
+  FrameworkTagsBadges,
+  FrameworkTagsEditor,
+} from "@/components/shared/framework-tags";
 import { buttonVariants } from "@/components/ui/button";
 import { getSessionUser } from "@/lib/data/session";
 import { canAccessNav } from "@/lib/services/permissions";
@@ -52,6 +56,12 @@ function ContentArticle({
         <h4 className={headingClass}>{item.block.title}</h4>
       )}
 
+      <FrameworkTagsBadges
+        className="mt-2"
+        esgFrameworks={item.block.esg_frameworks}
+        disclosureFrameworks={item.block.disclosure_frameworks}
+      />
+
       {narrative ? (
         <NarrativePreview
           narrative={narrative}
@@ -76,6 +86,18 @@ function ContentArticle({
           ))}
         </div>
       ) : null}
+
+      <details className="mt-4 rounded-md border border-slate-200 bg-slate-50/60 p-3">
+        <summary className="cursor-pointer text-xs font-medium text-[var(--brand-navy)]">
+          평가·공시 기준 수정
+        </summary>
+        <FrameworkTagsEditor
+          className="mt-3"
+          blockId={item.block.id}
+          esgFrameworks={item.block.esg_frameworks}
+          disclosureFrameworks={item.block.disclosure_frameworks}
+        />
+      </details>
 
       <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
         <span>

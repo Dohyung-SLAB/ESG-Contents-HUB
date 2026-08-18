@@ -12,6 +12,7 @@ import {
   actionUpdateCandidate,
 } from "@/lib/actions";
 import { NarrativePreview } from "@/components/extraction/narrative-preview";
+import { FrameworkTagsEditor } from "@/components/shared/framework-tags";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,10 +23,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  DISCLOSURE_FRAMEWORKS,
-  ESG_EVAL_FRAMEWORKS,
-} from "@/lib/frameworks";
 import type { ExtractionCandidate, ExtractionJob } from "@/types/database";
 import type { ExtractionDiagnostics } from "@/lib/services/extraction";
 
@@ -82,27 +79,6 @@ export function ExtractionReviewView({
         ? c.disclosure_frameworks
         : [],
     };
-  }
-
-  function toggleFramework(
-    candidate: ExtractionCandidate,
-    kind: "esg" | "disclosure",
-    value: string,
-  ) {
-    const current = frameworksOf(candidate);
-    const list = kind === "esg" ? current.esg : current.disclosure;
-    const next = list.includes(value)
-      ? list.filter((v) => v !== value)
-      : [...list, value];
-    run(() =>
-      actionUpdateCandidate(
-        candidate.id,
-        kind === "esg"
-          ? { esg_frameworks: next }
-          : { disclosure_frameworks: next },
-        job.id,
-      ),
-    );
   }
 
   return (
@@ -349,66 +325,13 @@ export function ExtractionReviewView({
                 />
               </label>
 
-              <div className="space-y-2 rounded-md border p-3">
-                <p className="text-xs font-medium text-[var(--brand-navy)]">
-                  ESG 평가기준 (수동 선택)
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  AI가 판단하지 않습니다. 해당하는 항목만 체크하세요.
-                </p>
-                <div className="flex flex-wrap gap-3">
-                  {ESG_EVAL_FRAMEWORKS.map((fw) => {
-                    const checked = frameworksOf(active).esg.includes(fw);
-                    return (
-                      <label
-                        key={fw}
-                        className="flex items-center gap-1.5 text-sm"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          disabled={pending}
-                          onChange={() => toggleFramework(active, "esg", fw)}
-                        />
-                        {fw}
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="space-y-2 rounded-md border p-3">
-                <p className="text-xs font-medium text-[var(--brand-navy)]">
-                  공시기준 (수동 선택)
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  AI가 판단하지 않습니다. 해당하는 항목만 체크하세요.
-                </p>
-                <div className="flex flex-wrap gap-3">
-                  {DISCLOSURE_FRAMEWORKS.map((fw) => {
-                    const checked =
-                      frameworksOf(active).disclosure.includes(fw);
-                    return (
-                      <label
-                        key={fw}
-                        className="flex items-center gap-1.5 text-sm"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          disabled={pending}
-                          onChange={() =>
-                            toggleFramework(active, "disclosure", fw)
-                          }
-                        />
-                        {fw}
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
+              <FrameworkTagsEditor
+                esgFrameworks={active.esg_frameworks}
+                disclosureFrameworks={active.disclosure_frameworks}
+                onSave={async (next) => {
+                  await actionUpdateCandidate(active.id, next, job.id);
+                }}
+              />
 
               <label className="block space-y-1">
                 <span className="text-xs text-muted-foreground">
