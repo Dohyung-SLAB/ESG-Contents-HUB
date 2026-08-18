@@ -17,12 +17,12 @@ type PageHeaderProps = {
 
 export function PageHeader({ title, description, badge }: PageHeaderProps) {
   return (
-    <div className="mb-6 flex items-start justify-between gap-4">
+    <div className="mb-3 flex items-start justify-between gap-3">
       <div>
-        <h1 className="text-[1.75rem] font-semibold tracking-tight text-[var(--brand-ink)]">
+        <h1 className="text-xl font-semibold tracking-tight text-[var(--brand-ink)]">
           {title}
         </h1>
-        <p className="mt-1.5 text-[0.9rem] leading-relaxed text-muted-foreground">
+        <p className="mt-0.5 text-sm leading-snug text-muted-foreground">
           {description}
         </p>
       </div>

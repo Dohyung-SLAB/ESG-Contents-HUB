@@ -51,8 +51,8 @@ export function SettingsView({
   const [existingYear, setExistingYear] = useState(2028);
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-lg border bg-white p-4">
+    <div className="space-y-4">
+      <section className="rounded-lg border bg-white p-3">
         <h2 className="mb-2 text-sm font-semibold">내 계정</h2>
         <p className="text-sm">
           {currentUser.full_name} · {currentUser.email}
@@ -66,7 +66,7 @@ export function SettingsView({
       </section>
 
       {canCreateProject ? (
-        <section className="rounded-lg border bg-white p-4">
+        <section className="rounded-lg border bg-white p-3">
           <h2 className="mb-2 text-sm font-semibold">역할 모델</h2>
           <div className="space-y-3">
             {ROLES.map((role) => {
@@ -98,7 +98,7 @@ export function SettingsView({
       ) : null}
 
       {showDemoRoleSwitcher ? (
-      <section className="rounded-lg border bg-white p-4">
+      <section className="rounded-lg border bg-white p-3">
         <h2 className="mb-2 text-sm font-semibold">Demo Role Switcher</h2>
         <p className="mb-3 text-sm text-muted-foreground">
           Current: {currentUser.full_name} ({ROLE_GUIDE[currentUser.role].labelKo}
@@ -128,7 +128,7 @@ export function SettingsView({
       ) : null}
 
       {canCreateProject ? (
-        <section className="rounded-lg border bg-white p-4">
+        <section className="rounded-lg border bg-white p-3">
           <h2 className="mb-1 text-sm font-semibold">
             고객사 · 프로젝트 생성 (관리자/컨설턴트)
           </h2>
@@ -136,7 +136,7 @@ export function SettingsView({
             컨설턴트 계정은 담당 고객사와 보고 연도 프로젝트를 직접 만들 수 있습니다.
           </p>
 
-          <div className="mb-6 space-y-3 rounded-md border border-slate-100 bg-slate-50 p-3">
+          <div className="mb-3 space-y-3 rounded-md border border-slate-100 bg-slate-50 p-3">
             <p className="text-xs font-semibold uppercase text-muted-foreground">
               신규 고객사 + 프로젝트
             </p>
@@ -275,7 +275,7 @@ export function SettingsView({
       ) : null}
 
       {canCreateProject ? (
-        <section className="rounded-lg border bg-white p-4">
+        <section className="rounded-lg border bg-white p-3">
           <h2 className="mb-1 text-sm font-semibold">
             고객사 · 프로젝트 삭제
           </h2>
@@ -284,7 +284,7 @@ export function SettingsView({
             고객사 삭제 시 하위 프로젝트·Evidence까지 모두 삭제됩니다.
           </p>
 
-          <div className="mb-6">
+          <div className="mb-3">
             <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
               프로젝트 (보고서)
             </h3>
@@ -411,7 +411,7 @@ export function SettingsView({
       ) : null}
 
       {showAuditLogs ? (
-      <section className="rounded-lg border bg-white p-4">
+      <section className="rounded-lg border bg-white p-3">
         <h2 className="mb-2 text-sm font-semibold">Audit Log</h2>
         {auditLogs.length === 0 ? (
           <p className="text-sm text-muted-foreground">No audit events yet.</p>

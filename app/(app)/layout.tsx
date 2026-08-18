@@ -69,8 +69,8 @@ export default async function AppLayout({
           projects={projects}
           user={user}
         />
-        <main className="flex-1 overflow-y-auto bg-[var(--background)] p-6">
-          <div className="mx-auto w-full max-w-7xl">{children}</div>
+        <main className="flex-1 overflow-y-auto bg-[var(--background)] p-3 sm:p-4">
+          <div className="mx-auto w-full max-w-none">{children}</div>
         </main>
       </div>
     </div>

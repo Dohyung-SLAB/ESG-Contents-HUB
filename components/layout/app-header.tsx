@@ -36,8 +36,8 @@ export function AppHeader({
   const [pending, startTransition] = useTransition();
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between gap-6 border-b border-border bg-white px-6">
-      <div className="flex min-w-0 flex-1 items-center gap-4">
+    <header className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-border bg-white px-3 sm:px-4">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         <div className="min-w-0">
           <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
             Active Project

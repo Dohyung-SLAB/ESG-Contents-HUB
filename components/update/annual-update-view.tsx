@@ -169,7 +169,7 @@ export function AnnualUpdateView({
   const attached = detail.evidences.filter((e) => e.evidence);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="mx-auto max-w-4xl space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <StatusBadge status={detail.current?.status ?? "NOT_STARTED"} />
         <span className="text-sm text-muted-foreground">
@@ -203,7 +203,7 @@ export function AnnualUpdateView({
       ) : null}
 
       {/* 1. 작년 보고서 (참고) */}
-      <section className="rounded-lg border bg-white p-4">
+      <section className="rounded-lg border bg-white p-3">
         <h2 className="mb-1 text-base font-semibold text-[var(--brand-navy)]">
           작년 보고서
         </h2>
@@ -217,7 +217,7 @@ export function AnnualUpdateView({
       </section>
 
       {/* 2. 수정 메모 */}
-      <section className="rounded-lg border bg-white p-4">
+      <section className="rounded-lg border bg-white p-3">
         <h2 className="mb-1 text-base font-semibold text-[var(--brand-navy)]">
           수정 메모
         </h2>
@@ -235,7 +235,7 @@ export function AnnualUpdateView({
 
       {/* 3. 근거 첨부 (선택) */}
       <section
-        className={`rounded-lg border border-dashed bg-white p-4 ${
+        className={`rounded-lg border border-dashed bg-white p-3 ${
           dragOver ? "border-[var(--brand-navy)] bg-slate-50" : ""
         }`}
         onDragOver={(e) => {
@@ -279,7 +279,7 @@ export function AnnualUpdateView({
       </section>
 
       {/* 4. 보고서 생성 */}
-      <section className="rounded-lg border bg-white p-4">
+      <section className="rounded-lg border bg-white p-3">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="text-base font-semibold text-[var(--brand-navy)]">

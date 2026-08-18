@@ -25,7 +25,7 @@ export default async function ExtractionIndexPage() {
         description="보고서를 업로드하고 Content Block 후보를 추출합니다."
       />
       <ExtractionCreateForm />
-      <div className="rounded-lg border bg-white p-4">
+      <div className="rounded-lg border bg-white p-3">
         <h2 className="mb-2 text-sm font-semibold">Jobs</h2>
         {jobs.length === 0 ? (
           <p className="text-sm text-muted-foreground">No jobs yet.</p>

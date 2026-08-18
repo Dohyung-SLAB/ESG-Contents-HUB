@@ -53,7 +53,7 @@ export default async function SettingsPage() {
     !(await hasAuthSession());
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         title="Settings"
         description={

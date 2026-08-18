@@ -93,7 +93,7 @@ export function ExtractionReviewView({
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
       {diagnostics ? (
-        <section className="rounded-lg border bg-white p-4 text-sm">
+        <section className="rounded-lg border bg-white p-3 text-sm">
           <h3 className="mb-2 font-semibold text-[var(--brand-ink)]">
             감지된 목차 구조
           </h3>
@@ -206,7 +206,7 @@ export function ExtractionReviewView({
         </Button>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+      <div className="grid gap-2 lg:grid-cols-[1.4fr_1fr]">
         <div className="rounded-lg border bg-white">
           <Table>
             <TableHeader>
@@ -294,7 +294,7 @@ export function ExtractionReviewView({
           </Table>
         </div>
 
-        <aside className="rounded-lg border bg-white p-4 text-sm">
+        <aside className="rounded-lg border bg-white p-3 text-sm">
           <h3 className="mb-2 font-semibold">Source Viewer</h3>
           {!active ? (
             <p className="text-muted-foreground">Select a candidate</p>
@@ -487,7 +487,7 @@ export function ExtractionCreateForm() {
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <div className="space-y-3 rounded-lg border bg-white p-4">
+    <div className="space-y-3 rounded-lg border bg-white p-3">
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
           <p className="text-xs text-muted-foreground">

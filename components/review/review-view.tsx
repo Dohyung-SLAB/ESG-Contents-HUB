@@ -119,7 +119,7 @@ export function ReviewView({
         </p>
       ) : null}
 
-      <div className="flex flex-wrap gap-2 rounded-lg border bg-white p-3">
+      <div className="flex flex-wrap gap-1.5 rounded-lg border bg-white p-2">
         <input
           className="h-8 rounded-md border px-2 text-sm"
           placeholder="Issue"
@@ -186,7 +186,7 @@ export function ReviewView({
         </Button>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
+      <div className="grid gap-2 lg:grid-cols-[1fr_1.2fr]">
         <section className="rounded-lg border bg-white">
           <Table>
             <TableHeader>
@@ -247,13 +247,13 @@ export function ReviewView({
           </Table>
         </section>
 
-        <section className="rounded-lg border bg-white p-4">
+        <section className="rounded-lg border bg-white p-3">
           {!detail ? (
             <p className="text-sm text-muted-foreground">
               Select a queue item to review.
             </p>
           ) : (
-            <div className="space-y-4 text-sm">
+            <div className="space-y-3 text-sm">
               <h2 className="text-lg font-semibold text-[var(--brand-navy)]">
                 {detail.block.code} · {detail.block.title}
               </h2>

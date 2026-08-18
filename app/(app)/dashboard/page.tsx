@@ -97,7 +97,7 @@ export default async function DashboardPage() {
         description={`${company.name} ${project.reporting_year} · ${project.name} 진행 현황`}
       />
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+      <div className="mb-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
         {kpiCards.map((card) => (
           <Link key={card.label} href={card.href}>
             <Card className="transition hover:border-[var(--brand-navy)]">
@@ -116,7 +116,7 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      <div className="mb-6 grid gap-4 lg:grid-cols-3">
+      <div className="mb-3 grid gap-2 lg:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Change Types</CardTitle>
@@ -168,7 +168,7 @@ export default async function DashboardPage() {
         <CardHeader>
           <CardTitle className="text-base">Action Required</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 text-sm">
+        <CardContent className="grid gap-2 md:grid-cols-2 lg:grid-cols-3 text-sm">
           <ActionList
             title="미착수"
             items={metrics.actionRequired.not_started.map((b) => b.code)}

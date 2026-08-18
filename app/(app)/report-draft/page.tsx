@@ -143,7 +143,7 @@ export default async function ReportDraftPage({
           ];
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         <PageHeader
           title="Report Draft"
           description="Extraction 목차·카테고리 계층으로 보고서처럼 미리보고 DOCX로 내려받습니다."
@@ -171,9 +171,9 @@ export default async function ReportDraftPage({
           <ReportDraftDownloadButton approvedOnly={approvedOnly} />
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
-          <aside className="h-fit rounded-lg border bg-white p-4 lg:sticky lg:top-20">
-            <h2 className="mb-3 text-sm font-semibold text-[var(--brand-navy)]">
+        <div className="grid gap-3 lg:grid-cols-[200px_minmax(0,1fr)]">
+          <aside className="h-fit rounded-lg border bg-white p-3 lg:sticky lg:top-16">
+            <h2 className="mb-2 text-sm font-semibold text-[var(--brand-navy)]">
               목차
             </h2>
             {sections.length === 0 || model.blocks.length === 0 ? (
@@ -234,24 +234,24 @@ export default async function ReportDraftPage({
           </aside>
 
           {/* Document-style preview (category → nested content) */}
-          <section className="rounded-lg border border-slate-200 bg-white px-8 py-10 shadow-sm sm:px-12 sm:py-12">
-            <header className="border-b border-slate-200 pb-8">
-              <h1 className="text-3xl font-bold tracking-tight text-[#0f2744]">
+          <section className="rounded-lg border border-slate-200 bg-white px-5 py-6 shadow-sm sm:px-8 sm:py-8">
+            <header className="border-b border-slate-200 pb-4">
+              <h1 className="text-2xl font-bold tracking-tight text-[#0f2744]">
                 {model.companyName} {model.reportingYear} 지속가능경영보고서 초안
               </h1>
-              <p className="mt-2 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-slate-500">
                 {model.projectName} · 목차 {sections.length}개 · 콘텐츠{" "}
                 {model.blocks.length}개
               </p>
             </header>
 
             {model.blocks.length === 0 ? (
-              <p className="mt-10 text-sm text-muted-foreground">
+              <p className="mt-6 text-sm text-muted-foreground">
                 표시할 콘텐츠 블록이 없습니다. Extraction에서 목차 구간을
                 추출·승인한 뒤 Annual Update를 진행하세요.
               </p>
             ) : (
-              <div className="mt-12 space-y-16">
+              <div className="mt-8 space-y-10">
                 {sections.map((section, sIdx) => (
                   <div
                     key={section.title}
@@ -259,11 +259,11 @@ export default async function ReportDraftPage({
                     className="scroll-mt-24"
                   >
                     {/* Top-level category (TOC), report chapter style */}
-                    <h2 className="text-[1.75rem] font-bold tracking-tight text-[#0f2744]">
+                    <h2 className="text-[1.5rem] font-bold tracking-tight text-[#0f2744]">
                       {sIdx + 1}. {section.title}
                     </h2>
 
-                    <div className="mt-8 space-y-12">
+                    <div className="mt-5 space-y-8">
                       {section.categories.map((cat) => (
                         <div
                           key={`${section.title}-${cat.title || "root"}`}
@@ -272,15 +272,15 @@ export default async function ReportDraftPage({
                               ? categoryAnchor(section.title, cat.title)
                               : undefined
                           }
-                          className="scroll-mt-28"
+                          className="scroll-mt-24"
                         >
                           {cat.title ? (
-                            <h3 className="mb-8 text-xl font-bold text-[#0f2744]">
+                            <h3 className="mb-5 text-lg font-bold text-[#0f2744]">
                               {cat.title}
                             </h3>
                           ) : null}
 
-                          <div className="space-y-12">
+                          <div className="space-y-8">
                             {cat.blocks.map((item) => (
                               <ContentArticle
                                 key={item.block.id}

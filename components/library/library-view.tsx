@@ -97,9 +97,9 @@ export function LibraryView({
   }
 
   return (
-    <div className="grid h-[calc(100vh-8rem)] grid-cols-[220px_1fr_340px] gap-4">
-      <aside className="overflow-y-auto rounded-lg border bg-white p-3">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+    <div className="grid h-[calc(100vh-5.5rem)] grid-cols-[200px_minmax(0,1fr)_300px] gap-2">
+      <aside className="overflow-y-auto rounded-lg border bg-white p-2">
+        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           Issue Tree
         </p>
         <button
@@ -141,7 +141,7 @@ export function LibraryView({
       </aside>
 
       <section className="flex min-w-0 flex-col overflow-hidden rounded-lg border bg-white">
-        <div className="flex flex-wrap items-center gap-2 border-b p-3">
+        <div className="flex flex-wrap items-center gap-1.5 border-b p-2">
           <Input
             placeholder="Search title / sub_topic"
             value={q}
@@ -293,13 +293,13 @@ export function LibraryView({
         </div>
       </section>
 
-      <aside className="overflow-y-auto rounded-lg border bg-white p-4">
+      <aside className="overflow-y-auto rounded-lg border bg-white p-3">
         {!selected ? (
           <p className="text-sm text-muted-foreground">
             Select a content block to view details.
           </p>
         ) : (
-          <div className="space-y-4 text-sm">
+          <div className="space-y-3 text-sm">
             <div>
               <p className="font-mono text-xs text-muted-foreground">
                 {selected.block.code}

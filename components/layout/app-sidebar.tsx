@@ -43,17 +43,17 @@ export function AppSidebar({ role }: { role: UserRole }) {
   const visible = navItems.filter((item) => canAccessNav(role, item.key));
 
   return (
-    <aside className="flex h-full w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
-      <div className="flex h-14 items-center border-b border-sidebar-border px-5">
+    <aside className="flex h-full w-52 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
+      <div className="flex h-12 items-center border-b border-sidebar-border px-3">
         <Link
           href="/dashboard"
-          className="text-[0.95rem] font-semibold tracking-tight text-white"
+          className="text-[0.9rem] font-semibold tracking-tight text-white"
         >
           ESG Content Hub
         </Link>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-1 p-3">
+      <nav className="flex flex-1 flex-col gap-0.5 p-2">
         {visible.map(({ href, label, icon: Icon }) => {
           const active =
             pathname === href || pathname.startsWith(`${href}/`);
@@ -63,7 +63,7 @@ export function AppSidebar({ role }: { role: UserRole }) {
               key={href}
               href={href}
               className={cn(
-                "flex items-center gap-2.5 rounded-md px-3 py-2.5 text-[0.9rem] transition-colors",
+                "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[0.85rem] transition-colors",
                 active
                   ? "bg-sidebar-accent font-medium text-white shadow-[inset_3px_0_0_0_var(--brand-navy)]"
                   : "text-slate-400 hover:bg-sidebar-accent hover:text-white",

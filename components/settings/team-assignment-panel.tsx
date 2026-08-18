@@ -48,7 +48,7 @@ export function TeamAssignmentPanel({
 
   if (projects.length === 0) {
     return (
-      <section className="rounded-lg border bg-white p-4">
+      <section className="rounded-lg border bg-white p-3">
         <h2 className="mb-2 text-sm font-semibold">고객사 담당자 초대</h2>
         <p className="text-sm text-muted-foreground">
           먼저 고객사·프로젝트를 생성한 뒤, 가입을 허용할 이메일을 초대하세요.
@@ -58,7 +58,7 @@ export function TeamAssignmentPanel({
   }
 
   return (
-    <section className="rounded-lg border bg-white p-4">
+    <section className="rounded-lg border bg-white p-3">
       <h2 className="mb-1 text-sm font-semibold">고객사 담당자 초대</h2>
       <p className="mb-4 text-sm text-muted-foreground">
         초대한 이메일만 Reviewer/Contributor로 가입할 수 있습니다. 컨설턴트는{" "}
