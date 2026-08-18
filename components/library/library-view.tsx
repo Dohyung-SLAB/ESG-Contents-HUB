@@ -97,7 +97,7 @@ export function LibraryView({
   }
 
   return (
-    <div className="grid h-[calc(100vh-5.5rem)] grid-cols-[200px_minmax(0,1fr)_300px] gap-2">
+    <div className="grid h-[calc(100vh-5.5rem)] grid-cols-[200px_minmax(0,1.1fr)_minmax(400px,1fr)] gap-2">
       <aside className="overflow-y-auto rounded-lg border bg-white p-2">
         <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           Issue Tree

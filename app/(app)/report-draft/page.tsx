@@ -113,7 +113,7 @@ export default async function ReportDraftPage({
           <ReportDraftDownloadButton approvedOnly={approvedOnly} />
         </div>
 
-        <div className="grid gap-3 lg:grid-cols-[200px_minmax(0,1fr)]">
+        <div className="grid gap-3 lg:grid-cols-[minmax(280px,340px)_minmax(0,48rem)] lg:justify-start">
           <aside className="h-fit rounded-lg border bg-white p-3 lg:sticky lg:top-16">
             <h2 className="mb-2 text-sm font-semibold text-[var(--brand-navy)]">
               목차
