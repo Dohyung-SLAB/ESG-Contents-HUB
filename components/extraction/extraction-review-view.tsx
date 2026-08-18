@@ -608,38 +608,6 @@ export function ExtractionCreateForm() {
                 throw new Error(prep.error ?? `업로드 준비 실패 (${prepRes.status})`);
               }
 
-              // #region agent log
-              fetch(
-                "http://127.0.0.1:7325/ingest/14414874-2602-4dd0-85b2-ec7314f89574",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    "X-Debug-Session-Id": "73438b",
-                  },
-                  body: JSON.stringify({
-                    sessionId: "73438b",
-                    runId: "post-fix",
-                    hypothesisId: "C",
-                    location: "extraction-review-view.tsx:beforeUpload",
-                    message: "client about to uploadToSignedUrl",
-                    data: {
-                      prepStatus: prepRes.status,
-                      storagePath: prep.storagePath,
-                      hasSpace: Boolean(prep.storagePath?.includes(" ")),
-                      hasHangul: Boolean(
-                        prep.storagePath &&
-                          /[\uac00-\ud7a3]/.test(prep.storagePath),
-                      ),
-                      fileName: file.name,
-                      fileSize: file.size,
-                    },
-                    timestamp: Date.now(),
-                  }),
-                },
-              ).catch(() => {});
-              // #endregion
-
               // 2) Browser → Supabase Storage (file never goes through Vercel)
               const { createSupabaseBrowserClient } = await import(
                 "@/lib/supabase/client"
@@ -650,32 +618,6 @@ export function ExtractionCreateForm() {
                 .uploadToSignedUrl(prep.storagePath, prep.token, file, {
                   contentType: "application/pdf",
                 });
-
-              // #region agent log
-              fetch(
-                "http://127.0.0.1:7325/ingest/14414874-2602-4dd0-85b2-ec7314f89574",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    "X-Debug-Session-Id": "73438b",
-                  },
-                  body: JSON.stringify({
-                    sessionId: "73438b",
-                    runId: "post-fix",
-                    hypothesisId: "C",
-                    location: "extraction-review-view.tsx:afterUpload",
-                    message: "uploadToSignedUrl result",
-                    data: {
-                      ok: !upErr,
-                      errorMessage: upErr?.message ?? null,
-                      errorName: upErr?.name ?? null,
-                    },
-                    timestamp: Date.now(),
-                  }),
-                },
-              ).catch(() => {});
-              // #endregion
 
               if (upErr) {
                 throw new Error(upErr.message || "Storage 업로드 실패");

@@ -100,10 +100,18 @@ export function LibraryView({
         </p>
         <button
           type="button"
-          className="mb-2 w-full rounded-md bg-[var(--brand-navy)]/10 px-2 py-2 text-left text-sm font-medium text-[var(--brand-navy)]"
-          onClick={() => applyFilters({ section: "" })}
+          className={cn(
+            "mb-2 w-full rounded-md px-2 py-2 text-left text-sm",
+            !section
+              ? "bg-[var(--brand-navy)]/10 font-medium text-[var(--brand-navy)]"
+              : "text-muted-foreground hover:bg-slate-50",
+          )}
+          onClick={() => {
+            setSection("");
+            applyFilters({ section: "" });
+          }}
         >
-          소비자 신뢰 확보
+          전체
         </button>
         <ul className="space-y-1">
           {sections.map((s) => (

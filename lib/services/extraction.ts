@@ -428,43 +428,6 @@ export async function prepareReportUpload(input: {
   const safeName = toStorageObjectName(input.filename);
   const storagePath = `${workspace.company.id}/${workspace.project.id}/${uploadId}/${safeName}`;
 
-  // #region agent log
-  const __dbgPayload = {
-    sessionId: "73438b",
-    runId: "post-fix",
-    hypothesisId: "A",
-    location: "extraction.ts:prepareReportUpload",
-    message: "prepared storage path",
-    data: {
-      filename: input.filename,
-      safeName,
-      storagePath,
-      hasSpace: storagePath.includes(" "),
-      hasHangul: /[\uac00-\ud7a3]/.test(storagePath),
-      byteLength: input.byteLength,
-    },
-    timestamp: Date.now(),
-  };
-  fetch("http://127.0.0.1:7325/ingest/14414874-2602-4dd0-85b2-ec7314f89574", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Debug-Session-Id": "73438b",
-    },
-    body: JSON.stringify(__dbgPayload),
-  }).catch(() => {});
-  try {
-    const { appendFileSync } = await import("fs");
-    const { join } = await import("path");
-    appendFileSync(
-      join(process.cwd(), "debug-73438b.log"),
-      `${JSON.stringify(__dbgPayload)}\n`,
-    );
-  } catch {
-    /* ignore */
-  }
-  // #endregion
-
   const admin = createSupabaseAdminClient();
   const { error: bucketErr } = await admin.storage.createBucket("reports", {
     public: false,
@@ -478,41 +441,6 @@ export async function prepareReportUpload(input: {
   const { data, error } = await admin.storage
     .from("reports")
     .createSignedUploadUrl(storagePath);
-
-  // #region agent log
-  const __dbgSigned = {
-    sessionId: "73438b",
-    runId: "post-fix",
-    hypothesisId: "D",
-    location: "extraction.ts:createSignedUploadUrl",
-    message: "signed upload url result",
-    data: {
-      ok: !error && !!data,
-      errorMessage: error?.message ?? null,
-      returnedPath: data?.path ?? null,
-      pathMatchesInput: data?.path === storagePath,
-    },
-    timestamp: Date.now(),
-  };
-  fetch("http://127.0.0.1:7325/ingest/14414874-2602-4dd0-85b2-ec7314f89574", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Debug-Session-Id": "73438b",
-    },
-    body: JSON.stringify(__dbgSigned),
-  }).catch(() => {});
-  try {
-    const { appendFileSync } = await import("fs");
-    const { join } = await import("path");
-    appendFileSync(
-      join(process.cwd(), "debug-73438b.log"),
-      `${JSON.stringify(__dbgSigned)}\n`,
-    );
-  } catch {
-    /* ignore */
-  }
-  // #endregion
 
   if (error || !data) {
     throw new Error(
@@ -566,53 +494,6 @@ export async function createExtractionJobFromUpload(input: {
   const { data, error } = await admin.storage
     .from("reports")
     .download(storagePath);
-
-  // #region agent log
-  fetch("http://127.0.0.1:7325/ingest/14414874-2602-4dd0-85b2-ec7314f89574", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Debug-Session-Id": "73438b",
-    },
-    body: JSON.stringify({
-      sessionId: "73438b",
-      runId: "post-fix",
-      hypothesisId: "E",
-      location: "extraction.ts:download",
-      message: "storage download result",
-      data: {
-        storagePath,
-        hasSpace: storagePath.includes(" "),
-        ok: !error && !!data,
-        errorMessage: error?.message ?? null,
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  try {
-    const { appendFileSync } = await import("fs");
-    const { join } = await import("path");
-    appendFileSync(
-      join(process.cwd(), "debug-73438b.log"),
-      `${JSON.stringify({
-        sessionId: "73438b",
-        runId: "post-fix",
-        hypothesisId: "E",
-        location: "extraction.ts:download",
-        message: "storage download result",
-        data: {
-          storagePath,
-          hasSpace: storagePath.includes(" "),
-          ok: !error && !!data,
-          errorMessage: error?.message ?? null,
-        },
-        timestamp: Date.now(),
-      })}\n`,
-    );
-  } catch {
-    /* ignore */
-  }
-  // #endregion
 
   if (error || !data) {
     throw new Error(

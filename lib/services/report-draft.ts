@@ -26,7 +26,6 @@ import type {
   Issue,
   KeyFact,
 } from "@/types/database";
-import type { ContentStatus } from "@/types/enums";
 
 export type ReportDraftBlock = {
   block: ContentBlock;
@@ -35,9 +34,19 @@ export type ReportDraftBlock = {
   key_facts: KeyFact[];
 };
 
-export type ReportDraftSection = {
-  /** TOC / extraction section title (e.g. 소비자 신뢰 확보) */
+/** Mid-level report category under a TOC section (from `section` path). */
+export type ReportDraftCategory = {
+  /** Empty string = blocks sit directly under the TOC section */
   title: string;
+  blocks: ReportDraftBlock[];
+};
+
+export type ReportDraftSection = {
+  /** Top-level TOC title (e.g. 기후변화 대응) */
+  title: string;
+  /** Nested categories → content blocks (report document hierarchy) */
+  categories: ReportDraftCategory[];
+  /** Flat list of all blocks in this section (TOC / DOCX) */
   blocks: ReportDraftBlock[];
 };
 
@@ -47,11 +56,14 @@ export type ReportDraftModel = {
   reportingYear: number;
   /** Flat list (DOCX + legacy) */
   blocks: ReportDraftBlock[];
-  /** Grouped by content_blocks.section (TOC) */
+  /** Grouped by content_blocks.section (TOC → category → content) */
   sections: ReportDraftSection[];
 };
 
-function normalizeTocSectionTitle(raw: string): string {
+function parseSectionPath(raw: string): {
+  toc: string;
+  category: string;
+} {
   const parts = raw
     .split(/\s*>\s*/)
     .map((p) => p.trim())
@@ -60,31 +72,53 @@ function normalizeTocSectionTitle(raw: string): string {
   for (const part of parts) {
     if (deduped[deduped.length - 1] !== part) deduped.push(part);
   }
-  // Report Draft groups by the top-level TOC title (first segment).
-  return deduped[0] ?? raw.trim() ?? "기타";
+  const toc = deduped[0] ?? (raw.trim() || "기타");
+  const category = deduped.length > 1 ? deduped.slice(1).join(" > ") : "";
+  return { toc, category };
 }
 
 function groupBlocksByTocSection(
   blocks: ReportDraftBlock[],
 ): ReportDraftSection[] {
-  const order: string[] = [];
-  const map = new Map<string, ReportDraftBlock[]>();
+  const sectionOrder: string[] = [];
+  const sectionMap = new Map<
+    string,
+    { categoryOrder: string[]; categories: Map<string, ReportDraftBlock[]> }
+  >();
+
   for (const item of blocks) {
-    const title = normalizeTocSectionTitle(
+    const { toc, category } = parseSectionPath(
       item.block.section?.trim() ||
         item.issue?.name?.trim() ||
         "기타",
     );
-    if (!map.has(title)) {
-      map.set(title, []);
-      order.push(title);
+    if (!sectionMap.has(toc)) {
+      sectionMap.set(toc, { categoryOrder: [], categories: new Map() });
+      sectionOrder.push(toc);
     }
-    map.get(title)!.push(item);
+    const section = sectionMap.get(toc)!;
+    const catKey = category;
+    if (!section.categories.has(catKey)) {
+      section.categories.set(catKey, []);
+      section.categoryOrder.push(catKey);
+    }
+    section.categories.get(catKey)!.push(item);
   }
-  return order.map((title) => ({
-    title,
-    blocks: map.get(title)!,
-  }));
+
+  return sectionOrder.map((title) => {
+    const section = sectionMap.get(title)!;
+    const categories: ReportDraftCategory[] = section.categoryOrder.map(
+      (catTitle) => ({
+        title: catTitle,
+        blocks: section.categories.get(catTitle)!,
+      }),
+    );
+    return {
+      title,
+      categories,
+      blocks: categories.flatMap((c) => c.blocks),
+    };
+  });
 }
 
 function emptyModel(
@@ -209,10 +243,6 @@ export async function buildReportDraftModel(options?: {
   };
 }
 
-function statusLabel(status: ContentStatus) {
-  return status;
-}
-
 export async function generateReportDocx(
   model: ReportDraftModel,
 ): Promise<Buffer> {
@@ -264,48 +294,39 @@ export async function generateReportDocx(
       }),
     );
 
-    for (const [bIdx, item] of section.blocks.entries()) {
-      children.push(
-        new Paragraph({
-          text: `${sIdx + 1}.${bIdx + 1} ${item.block.title}`,
-          heading: HeadingLevel.HEADING_2,
-        }),
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: `${item.block.code} · ${item.block.content_type} · ${statusLabel(item.version.status)}`,
-              size: 18,
-              color: "666666",
-            }),
-          ],
-        }),
-        ...narrativeToDocx(item.version.narrative),
-      );
-
-      if (item.key_facts.length > 0) {
-        children.push(
-          new Paragraph({ text: "Key Facts", heading: HeadingLevel.HEADING_3 }),
-        );
-        for (const f of item.key_facts) {
-          const value =
-            f.value_number != null
-              ? `${f.value_number}${f.unit ? ` ${f.unit}` : ""}`
-              : (f.value_text ?? "");
-          children.push(new Paragraph({ text: `• ${f.key}: ${value}` }));
-        }
-      }
-
-      if (item.version.change_summary) {
+    for (const cat of section.categories) {
+      if (cat.title) {
         children.push(
           new Paragraph({
-            text: "Change Summary",
-            heading: HeadingLevel.HEADING_3,
+            text: cat.title,
+            heading: HeadingLevel.HEADING_2,
           }),
-          new Paragraph({ text: item.version.change_summary }),
         );
       }
 
-      children.push(new Paragraph({ text: "" }));
+      for (const item of cat.blocks) {
+        children.push(
+          new Paragraph({
+            text: item.block.title,
+            heading: cat.title
+              ? HeadingLevel.HEADING_3
+              : HeadingLevel.HEADING_2,
+          }),
+          ...narrativeToDocx(item.version.narrative),
+        );
+
+        if (item.key_facts.length > 0) {
+          for (const f of item.key_facts) {
+            const value =
+              f.value_number != null
+                ? `${f.value_number}${f.unit ? ` ${f.unit}` : ""}`
+                : (f.value_text ?? "");
+            children.push(new Paragraph({ text: `• ${f.key}: ${value}` }));
+          }
+        }
+
+        children.push(new Paragraph({ text: "" }));
+      }
     }
   }
 
