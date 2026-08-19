@@ -45,7 +45,10 @@ import {
   deleteProject,
   switchActiveProject,
 } from "@/lib/services/projects";
-import { updateContentBlockFrameworks } from "@/lib/services/library";
+import {
+  updateContentBlockFields,
+  updateContentBlockFrameworks,
+} from "@/lib/services/library";
 import { saveAnnualUpdateDraft } from "@/lib/services/update";
 import {
   DISCLOSURE_FRAMEWORKS,
@@ -439,6 +442,27 @@ export async function actionUpdateBlockFrameworks(
   revalidatePath("/report-draft");
   revalidatePath(`/update/${result.code}`);
   revalidatePath("/update");
+  return result;
+}
+
+/** Consultant-only: correct Extraction TOC section / sub_topic on a library block. */
+export async function actionUpdateBlockSection(
+  blockId: string,
+  patch: { section: string; sub_topic?: string | null },
+) {
+  const user = await getSessionUser();
+  if (user.role !== "ADMIN") {
+    throw new Error("Section 수정은 컨설턴트(ADMIN)만 할 수 있습니다.");
+  }
+  const result = await updateContentBlockFields(blockId, {
+    section: patch.section,
+    sub_topic: patch.sub_topic,
+  });
+  revalidatePath("/library");
+  revalidatePath("/dashboard");
+  revalidatePath("/report-draft");
+  revalidatePath("/review");
+  revalidatePath(`/update/${result.code}`);
   return result;
 }
 

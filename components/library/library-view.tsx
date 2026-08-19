@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { actionAssignOwnerDepartment } from "@/lib/actions";
+import { actionAssignOwnerDepartment, actionUpdateBlockSection } from "@/lib/actions";
 import { ChangeTypeBadge, StatusBadge } from "@/components/shared/status-badge";
 import {
   FrameworkTagsBadges,
@@ -45,10 +45,14 @@ export function LibraryView({
   rows,
   selected,
   canAssignDepartment = false,
+  canEditSection = false,
+  knownSections = [],
 }: {
   rows: LibraryBlockRow[];
   selected: Detail | null;
   canAssignDepartment?: boolean;
+  canEditSection?: boolean;
+  knownSections?: string[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -311,6 +315,21 @@ export function LibraryView({
                 {selected.block.section} · {selected.block.sub_topic}
               </p>
             </div>
+            {canEditSection ? (
+              <SectionEditForm
+                key={`section-${selected.block.id}`}
+                blockId={selected.block.id}
+                section={selected.block.section ?? ""}
+                subTopic={selected.block.sub_topic}
+                knownSections={Array.from(
+                  new Set(
+                    [...knownSections, ...sections].filter(
+                      (s): s is string => Boolean(s),
+                    ),
+                  ),
+                )}
+              />
+            ) : null}
             <div className="grid grid-cols-2 gap-2">
               <Meta label="Content Type" value={selected.block.content_type} />
               <Meta label="Update Type" value={selected.block.update_type} />
@@ -407,6 +426,82 @@ function Meta({ label, value }: { label: string; value: string }) {
     <div>
       <p className="text-[11px] uppercase text-muted-foreground">{label}</p>
       <p className="font-medium">{value}</p>
+    </div>
+  );
+}
+
+function SectionEditForm({
+  blockId,
+  section,
+  subTopic,
+  knownSections,
+}: {
+  blockId: string;
+  section: string;
+  subTopic: string | null;
+  knownSections: string[];
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [sectionValue, setSectionValue] = useState(section);
+  const [subTopicValue, setSubTopicValue] = useState(subTopic ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  return (
+    <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+      <h3 className="mb-1 text-sm font-medium">Section 수정 (컨설턴트)</h3>
+      <p className="mb-2 text-xs text-muted-foreground">
+        Extraction이 지정한 목차 경로를 수정합니다. 예: 안전보건 강화 &gt; 거버넌스
+      </p>
+      <label className="mb-2 block space-y-1">
+        <span className="text-[11px] text-muted-foreground">Section</span>
+        <Input
+          list={`section-suggestions-${blockId}`}
+          value={sectionValue}
+          onChange={(e) => setSectionValue(e.target.value)}
+          placeholder="목차명 또는 목차 &gt; 카테고리"
+        />
+        <datalist id={`section-suggestions-${blockId}`}>
+          {knownSections.map((s) => (
+            <option key={s} value={s} />
+          ))}
+        </datalist>
+      </label>
+      <label className="mb-2 block space-y-1">
+        <span className="text-[11px] text-muted-foreground">Sub topic (선택)</span>
+        <Input
+          value={subTopicValue}
+          onChange={(e) => setSubTopicValue(e.target.value)}
+          placeholder="세부 주제"
+        />
+      </label>
+      <Button
+        size="sm"
+        disabled={pending || !sectionValue.trim()}
+        onClick={() => {
+          setError(null);
+          setMessage(null);
+          startTransition(async () => {
+            try {
+              await actionUpdateBlockSection(blockId, {
+                section: sectionValue.trim(),
+                sub_topic: subTopicValue.trim() || null,
+              });
+              setMessage("Section을 저장했습니다.");
+              router.refresh();
+            } catch (e) {
+              setError(e instanceof Error ? e.message : "저장 실패");
+            }
+          });
+        }}
+      >
+        Section 저장
+      </Button>
+      {message ? (
+        <p className="mt-2 text-xs text-emerald-700">{message}</p>
+      ) : null}
+      {error ? <p className="mt-2 text-xs text-destructive">{error}</p> : null}
     </div>
   );
 }

@@ -61,6 +61,10 @@ export default async function LibraryPage({
           rows={rows}
           selected={selectedVisible}
           canAssignDepartment={canAssignOwnerDepartment(user.role)}
+          canEditSection={user.role === "ADMIN"}
+          knownSections={Array.from(
+            new Set(rows.map((r) => r.section).filter(Boolean) as string[]),
+          )}
         />
       </Suspense>
     </div>

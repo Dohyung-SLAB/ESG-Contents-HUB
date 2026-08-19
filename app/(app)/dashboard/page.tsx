@@ -150,16 +150,20 @@ export default async function DashboardPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Section Progress</CardTitle>
+            <CardTitle className="text-base">목차 섹션 진행률</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
-            {metrics.sectionProgress.map((s) => (
-              <Row
-                key={s.section}
-                label={s.section}
-                value={`${s.approved}/${s.total} (${s.rate.toFixed(0)}%)`}
-              />
-            ))}
+            {metrics.sectionProgress.length === 0 ? (
+              <p className="text-muted-foreground">표시할 섹션이 없습니다.</p>
+            ) : (
+              metrics.sectionProgress.map((s) => (
+                <Row
+                  key={s.section}
+                  label={s.section}
+                  value={`${s.approved}/${s.total} (${s.rate.toFixed(0)}%)`}
+                />
+              ))
+            )}
           </CardContent>
         </Card>
       </div>

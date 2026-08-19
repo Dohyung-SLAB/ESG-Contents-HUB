@@ -66,6 +66,7 @@ function computeMetrics(
     id: string;
     code: string;
     title?: string;
+    section?: string | null;
     sub_topic: string | null;
     reviewer_user_id: string | null;
   }>,
@@ -118,38 +119,21 @@ function computeMetrics(
     no_reviewer: blocks.filter((b) => !b.reviewer_user_id),
   };
 
-  const sectionMap: Record<string, string> = {
-    거버넌스: "Governance",
-    조직: "Governance",
-    회의체: "Governance",
-    로드맵: "Strategy",
-    "위험 및 기회": "Risk Management",
-    모니터링: "Risk Management",
-    식품안전: "Metrics & Targets",
-    인증: "Metrics & Targets",
-    품질경영: "Metrics & Targets",
-    VOC: "Metrics & Targets",
-    "VOC 실적": "Metrics & Targets",
-    제품: "Metrics & Targets",
-    브랜드: "Metrics & Targets",
-    "목표·실적": "Metrics & Targets",
-  };
+  // Progress by actual Extraction TOC section (content_blocks.section), not legacy buckets.
+  const sectionOrder: string[] = [];
+  const sectionIdx = new Map<string, number[]>();
+  blocks.forEach((b, i) => {
+    const label = (b.section ?? "").trim() || "기타";
+    if (!sectionIdx.has(label)) {
+      sectionIdx.set(label, []);
+      sectionOrder.push(label);
+    }
+    sectionIdx.get(label)!.push(i);
+  });
 
-  const sectionProgress = [
-    "Governance",
-    "Strategy",
-    "Risk Management",
-    "Metrics & Targets",
-  ].map((section) => {
-    const idxs = blocks
-      .map((b, i) => ({ b, i }))
-      .filter(
-        ({ b }) =>
-          (sectionMap[b.sub_topic ?? ""] ?? "Metrics & Targets") === section,
-      );
-    const done = idxs.filter(
-      ({ i }) => versions[i]?.status === "APPROVED",
-    ).length;
+  const sectionProgress = sectionOrder.map((section) => {
+    const idxs = sectionIdx.get(section) ?? [];
+    const done = idxs.filter((i) => versions[i]?.status === "APPROVED").length;
     return {
       section,
       total: idxs.length,

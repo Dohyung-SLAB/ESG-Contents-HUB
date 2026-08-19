@@ -403,27 +403,56 @@ export async function updateContentBlockFrameworks(
     disclosure_frameworks: string[];
   },
 ): Promise<ContentBlock> {
+  return updateContentBlockFields(blockIdOrCode, patch);
+}
+
+/** Update content block metadata (section, sub_topic, etc.). */
+export async function updateContentBlockFields(
+  blockIdOrCode: string,
+  patch: Partial<{
+    section: string;
+    sub_topic: string | null;
+    title: string;
+    esg_frameworks: string[];
+    disclosure_frameworks: string[];
+  }>,
+): Promise<ContentBlock> {
   const resolved = await resolveBlockId(blockIdOrCode);
   if (!resolved) throw new Error("콘텐츠 블록을 찾을 수 없습니다.");
+
+  const cleaned: Record<string, unknown> = { updated_at: touch() };
+  if (patch.section !== undefined) {
+    const section = patch.section.trim();
+    if (!section) throw new Error("Section을 입력하세요.");
+    cleaned.section = section;
+  }
+  if (patch.sub_topic !== undefined) {
+    cleaned.sub_topic = patch.sub_topic?.trim() || null;
+  }
+  if (patch.title !== undefined) {
+    const title = patch.title.trim();
+    if (!title) throw new Error("제목을 입력하세요.");
+    cleaned.title = title;
+  }
+  if (patch.esg_frameworks !== undefined) {
+    cleaned.esg_frameworks = patch.esg_frameworks;
+  }
+  if (patch.disclosure_frameworks !== undefined) {
+    cleaned.disclosure_frameworks = patch.disclosure_frameworks;
+  }
 
   if (!isSupabaseConfigured()) {
     const store = getPilotStore();
     const block = store.content_blocks.find((b) => b.id === resolved);
     if (!block) throw new Error("콘텐츠 블록을 찾을 수 없습니다.");
-    block.esg_frameworks = patch.esg_frameworks;
-    block.disclosure_frameworks = patch.disclosure_frameworks;
-    block.updated_at = touch();
+    Object.assign(block, cleaned);
     return block;
   }
 
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("content_blocks")
-    .update({
-      esg_frameworks: patch.esg_frameworks,
-      disclosure_frameworks: patch.disclosure_frameworks,
-      updated_at: touch(),
-    })
+    .update(cleaned)
     .eq("id", resolved)
     .select("*")
     .single();
