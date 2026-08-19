@@ -95,6 +95,21 @@ export function canEditContent(role: UserRole) {
   return role === "ADMIN" || role === "CONTRIBUTOR";
 }
 
+/** AI narrative revision is consultant-only. */
+export function canUseAiNarrativeRevision(role: UserRole) {
+  return role === "ADMIN";
+}
+
+/** Memo + evidence: consultant, 현업(editable blocks), and client ESG. */
+export function canEditUpdateMaterials(
+  role: UserRole,
+  canEditBlock: boolean,
+) {
+  if (role === "ADMIN" || role === "REVIEWER") return true;
+  if (role === "CONTRIBUTOR") return canEditBlock;
+  return false;
+}
+
 export type NavItemKey =
   | "dashboard"
   | "library"
@@ -114,7 +129,9 @@ export function canAccessNav(role: UserRole, item: NavItemKey): boolean {
     case "settings":
       return true;
     case "update":
-      return role === "ADMIN" || role === "CONTRIBUTOR";
+      return (
+        role === "ADMIN" || role === "CONTRIBUTOR" || role === "REVIEWER"
+      );
     case "review":
       return role === "ADMIN" || role === "REVIEWER";
     case "extraction":

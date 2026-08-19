@@ -108,21 +108,54 @@ export function TeamAssignmentPanel({
           <Label>부서 (현업 배정 시)</Label>
           <select
             className="w-full rounded-md border px-3 py-2 text-sm"
-            value={department}
-            onChange={(e) => setDepartment(e.target.value)}
+            value={
+              PILOT_DEPARTMENTS.includes(
+                department as (typeof PILOT_DEPARTMENTS)[number],
+              )
+                ? department
+                : "__custom__"
+            }
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === "__custom__") {
+                setDepartment("");
+                return;
+              }
+              setDepartment(v);
+            }}
+            disabled={memberRole !== "CONTRIBUTOR"}
           >
             {PILOT_DEPARTMENTS.map((d) => (
               <option key={d} value={d}>
                 {d}
               </option>
             ))}
+            <option value="__custom__">직접 입력…</option>
           </select>
+          {!PILOT_DEPARTMENTS.includes(
+            department as (typeof PILOT_DEPARTMENTS)[number],
+          ) || department === "" ? (
+            <Input
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
+              placeholder="부서명 직접 입력 (예: 생산기술팀)"
+              disabled={memberRole !== "CONTRIBUTOR"}
+            />
+          ) : null}
+          <p className="text-[11px] text-muted-foreground">
+            Contributor 초대 시 현업 부서를 목록에서 고르거나 직접 작성할 수
+            있습니다.
+          </p>
         </div>
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Button
-          disabled={pending || !email.trim()}
+          disabled={
+            pending ||
+            !email.trim() ||
+            (memberRole === "CONTRIBUTOR" && !department.trim())
+          }
           onClick={() => {
             setMessage(null);
             setError(null);
@@ -132,7 +165,9 @@ export function TeamAssignmentPanel({
                 email,
                 memberRole,
                 department:
-                  memberRole === "CONTRIBUTOR" ? department : "ESG",
+                  memberRole === "CONTRIBUTOR"
+                    ? department.trim() || null
+                    : "ESG",
               });
               if (!result.ok) {
                 setError(result.error ?? "초대 실패");

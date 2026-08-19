@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
-import { setSessionRole } from "@/lib/data/session";
+import { getSessionUser, setSessionRole } from "@/lib/data/session";
 import {
   applySuggestion,
   generateChangeSummary,
@@ -236,6 +236,7 @@ export async function actionSaveDraft(input: {
   blockId: string;
   change_type: ChangeType;
   narrative?: string | null;
+  change_summary?: string | null;
   key_facts?: Array<{
     key: string;
     value_text?: string | null;
@@ -313,6 +314,10 @@ export async function actionGenerateNarrative(
   blockId: string,
   changeMemo?: string,
 ) {
+  const user = await getSessionUser();
+  if (user.role !== "ADMIN") {
+    throw new Error("AI 서술 개정은 컨설턴트(ADMIN)만 사용할 수 있습니다.");
+  }
   const result = await generateNarrativeUpdate(blockId, {
     changeMemo,
     apply: true,

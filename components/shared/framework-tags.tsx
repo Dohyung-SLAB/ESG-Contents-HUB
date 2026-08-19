@@ -25,8 +25,8 @@ function Badge({
       className={cn(
         "inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium",
         tone === "esg"
-          ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200"
-          : "bg-sky-50 text-sky-800 ring-1 ring-sky-200",
+          ? "bg-[#e8f0dc] text-[#005700] ring-1 ring-[#418a04]/35"
+          : "bg-[#efe6e2] text-[#5c4a46] ring-1 ring-[#bea6a0]",
       )}
     >
       {label}

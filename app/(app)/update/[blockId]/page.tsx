@@ -1,10 +1,13 @@
 import { PageHeader } from "@/components/layout/page-header";
 import { AnnualUpdateView } from "@/components/update/annual-update-view";
-import { getSessionUser } from "@/lib/data/session";
 import { getPilotStore } from "@/lib/data/pilot-store";
+import { getSessionUser } from "@/lib/data/session";
 import { listSuggestions } from "@/lib/services/ai";
 import { getBlockDetail, resolveBlockId } from "@/lib/services/library";
-import { canEditContentBlock } from "@/lib/services/permissions";
+import {
+  canEditContentBlock,
+  canUseAiNarrativeRevision,
+} from "@/lib/services/permissions";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { notFound } from "next/navigation";
@@ -54,6 +57,7 @@ export default async function UpdateBlockPage({ params }: Props) {
   const suggestions = await listSuggestions(id);
   const user = await getSessionUser();
   const canEdit = canEditContentBlock(user, detail.block);
+  const canUseAi = canUseAiNarrativeRevision(user.role);
 
   const previousEvidences = detail.previous
     ? await listPreviousEvidences(detail.previous.id)
@@ -63,7 +67,11 @@ export default async function UpdateBlockPage({ params }: Props) {
     <div>
       <PageHeader
         title={`Annual Update — ${detail.block.code}`}
-        description="수정 메모를 적고, 필요하면 근거를 첨부한 뒤 보고서를 생성하세요."
+        description={
+          canUseAi
+            ? "수정 메모·근거를 확인한 뒤 AI로 올해 서술을 생성·개정하세요."
+            : "수정 메모를 작성하고 근거 파일을 첨부·확인할 수 있습니다. AI 서술 개정은 컨설턴트가 수행합니다."
+        }
       />
       <AnnualUpdateView
         detail={detail}

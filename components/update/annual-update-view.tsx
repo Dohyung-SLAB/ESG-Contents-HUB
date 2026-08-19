@@ -13,6 +13,10 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  canEditUpdateMaterials,
+  canUseAiNarrativeRevision,
+} from "@/lib/services/permissions";
 import type { UserRole } from "@/types/enums";
 import type { ContentBlock, ContentVersion, KeyFact } from "@/types/database";
 
@@ -54,19 +58,27 @@ export function AnnualUpdateView({
   userDepartment?: string | null;
   previousEvidences: Array<{ filename: string; relationship_type: string }>;
 }) {
-  const canEdit =
+  const canEditBlock =
     canEditProp ?? (role === "ADMIN" || role === "CONTRIBUTOR");
+  const canEditMaterials = canEditUpdateMaterials(role, canEditBlock);
+  const canUseAi = canUseAiNarrativeRevision(role);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [memo, setMemo] = useState("");
+  const [memo, setMemo] = useState(detail.current?.change_summary ?? "");
   const [report, setReport] = useState(detail.current?.narrative ?? "");
   const [dragOver, setDragOver] = useState(false);
 
   useEffect(() => {
     setReport(detail.current?.narrative ?? "");
-  }, [detail.current?.id, detail.current?.narrative, detail.current?.updated_at]);
+    setMemo(detail.current?.change_summary ?? "");
+  }, [
+    detail.current?.id,
+    detail.current?.narrative,
+    detail.current?.change_summary,
+    detail.current?.updated_at,
+  ]);
 
   const keyFactsPayload = useMemo(() => {
     const source =
@@ -100,10 +112,14 @@ export function AnnualUpdateView({
   }
 
   function toPayload(submit = false) {
+    const changeMemo = memo.trim();
     return {
       blockId: detail.block.code,
       change_type: "MODIFIED" as const,
-      narrative: report.trim() || memo.trim() || null,
+      narrative: canUseAi
+        ? report.trim() || changeMemo || null
+        : report.trim() || null,
+      change_summary: changeMemo || null,
       key_facts: keyFactsPayload,
       submit,
     };
@@ -175,16 +191,25 @@ export function AnnualUpdateView({
         <span className="text-sm text-muted-foreground">
           {detail.block.code} · {detail.block.title}
         </span>
+        {canUseAi ? (
+          <span className="rounded bg-slate-100 px-2 py-0.5 text-[11px] text-muted-foreground">
+            컨설턴트 · AI 서술 개정 가능
+          </span>
+        ) : (
+          <span className="rounded bg-slate-100 px-2 py-0.5 text-[11px] text-muted-foreground">
+            수정 메모 · 근거 첨부
+          </span>
+        )}
       </div>
 
       <FrameworkTagsEditor
         blockId={detail.block.id}
         esgFrameworks={detail.block.esg_frameworks}
         disclosureFrameworks={detail.block.disclosure_frameworks}
-        editable={canEdit || role === "REVIEWER"}
+        editable={canEditMaterials}
       />
 
-      {!canEdit ? (
+      {!canEditMaterials ? (
         <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
           {role === "CONTRIBUTOR"
             ? `자기 부서(${userDepartment ?? "미설정"})에 지정된 컨텐츠만 수정할 수 있습니다. 현재 작성 부서: ${detail.block.owner_department ?? "미지정"}`
@@ -202,21 +227,18 @@ export function AnnualUpdateView({
         </p>
       ) : null}
 
-      {/* 1. 작년 보고서 (참고) */}
       <section className="rounded-lg border bg-white p-3">
         <h2 className="mb-1 text-base font-semibold text-[var(--brand-navy)]">
           작년 보고서
         </h2>
         <p className="mb-3 text-xs text-muted-foreground">
-          {detail.previous?.reporting_year ?? "—"}년 서술 · 생성 시 기준으로
-          사용됩니다
+          {detail.previous?.reporting_year ?? "—"}년 서술 · 참고용
         </p>
         <div className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-md bg-slate-50 p-3 text-sm leading-relaxed">
           {detail.previous?.narrative?.trim() || "작년 서술이 없습니다."}
         </div>
       </section>
 
-      {/* 2. 수정 메모 */}
       <section className="rounded-lg border bg-white p-3">
         <h2 className="mb-1 text-base font-semibold text-[var(--brand-navy)]">
           수정 메모
@@ -227,25 +249,26 @@ export function AnnualUpdateView({
         <textarea
           className="min-h-28 w-full rounded-md border p-3 text-sm"
           value={memo}
-          disabled={!canEdit}
+          disabled={!canEditMaterials}
           onChange={(e) => setMemo(e.target.value)}
           placeholder="예: 탄소중립추진위원회를 설립하여 에너지 관리 체계를 정비"
         />
       </section>
 
-      {/* 3. 근거 첨부 (선택) */}
       <section
         className={`rounded-lg border border-dashed bg-white p-3 ${
           dragOver ? "border-[var(--brand-navy)] bg-slate-50" : ""
         }`}
         onDragOver={(e) => {
           e.preventDefault();
+          if (!canEditMaterials) return;
           setDragOver(true);
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={(e) => {
           e.preventDefault();
           setDragOver(false);
+          if (!canEditMaterials) return;
           const file = e.dataTransfer.files?.[0];
           if (file) uploadFile(file);
         }}
@@ -254,11 +277,11 @@ export function AnnualUpdateView({
           관련 근거 첨부
         </h2>
         <p className="mb-3 text-xs text-muted-foreground">
-          선택 사항입니다. 없어도 보고서 생성이 가능합니다.
+          선택 사항입니다. 파일을 첨부하거나 아래 목록에서 확인할 수 있습니다.
         </p>
         <Input
           type="file"
-          disabled={!canEdit || pending}
+          disabled={!canEditMaterials || pending}
           accept=".pdf,.docx,.xlsx,.pptx,.csv,image/*"
           onChange={(e) => {
             const file = e.target.files?.[0];
@@ -278,76 +301,131 @@ export function AnnualUpdateView({
         )}
       </section>
 
-      {/* 4. 보고서 생성 */}
-      <section className="rounded-lg border bg-white p-3">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="text-base font-semibold text-[var(--brand-navy)]">
-              올해 보고서 초안
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              작년 보고서 + 수정 메모를 바탕으로 생성합니다
-            </p>
+      {canUseAi ? (
+        <section className="rounded-lg border bg-white p-3">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-base font-semibold text-[var(--brand-navy)]">
+                올해 보고서 초안 (AI 서술 개정)
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                컨설턴트 전용 · 작년 보고서 + 수정 메모로 서술을 생성합니다
+              </p>
+            </div>
+            <Button
+              disabled={pending || !canEditMaterials}
+              onClick={() =>
+                run(async () => {
+                  const changeMemo = memo.trim();
+                  if (!changeMemo) {
+                    throw new Error("수정 메모를 먼저 작성해 주세요.");
+                  }
+                  await actionSaveDraft({
+                    ...toPayload(false),
+                    narrative: changeMemo,
+                    change_summary: changeMemo,
+                  });
+                  const result = await actionGenerateNarrative(
+                    detail.block.code,
+                    changeMemo,
+                  );
+                  if (result?.narrative) {
+                    setReport(result.narrative);
+                  }
+                }, "보고서를 생성해 저장했습니다")
+              }
+            >
+              {pending ? "생성 중…" : "보고서 생성"}
+            </Button>
           </div>
-          <Button
-            disabled={pending || !canEdit}
-            onClick={() =>
-              run(async () => {
-                const changeMemo = memo.trim();
-                if (!changeMemo) {
-                  throw new Error("수정 메모를 먼저 작성해 주세요.");
+          <Label className="mb-1 block text-xs text-muted-foreground">
+            생성 결과 (직접 수정 가능)
+          </Label>
+          <textarea
+            className="min-h-48 w-full rounded-md border p-3 text-sm leading-relaxed"
+            value={report}
+            disabled={!canEditMaterials}
+            onChange={(e) => setReport(e.target.value)}
+            placeholder="「보고서 생성」을 누르면 여기에 결과가 나타납니다"
+          />
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              disabled={pending || !canEditMaterials || !report.trim()}
+              onClick={() =>
+                run(
+                  () => actionSaveDraft(toPayload(false)),
+                  "초안을 저장했습니다",
+                )
+              }
+            >
+              초안 저장
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={
+                pending || !canEditBlock || !report.trim()
+              }
+              onClick={() =>
+                run(
+                  () => actionSaveDraft(toPayload(true)),
+                  "검토 요청을 제출했습니다",
+                )
+              }
+            >
+              제출
+            </Button>
+          </div>
+        </section>
+      ) : (
+        <section className="rounded-lg border bg-white p-3">
+          <h2 className="mb-1 text-base font-semibold text-[var(--brand-navy)]">
+            메모 · 근거 저장
+          </h2>
+          <p className="mb-3 text-xs text-muted-foreground">
+            AI 서술 개정은 컨설턴트만 사용합니다. 여기서는 수정 메모와 근거를
+            저장·제출할 수 있습니다.
+          </p>
+          {report.trim() ? (
+            <div className="mb-3">
+              <p className="mb-1 text-xs font-medium text-muted-foreground">
+                현재 저장된 서술 (읽기 전용)
+              </p>
+              <div className="max-h-40 overflow-y-auto whitespace-pre-wrap rounded-md bg-slate-50 p-3 text-sm leading-relaxed">
+                {report}
+              </div>
+            </div>
+          ) : null}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              disabled={pending || !canEditMaterials || !memo.trim()}
+              onClick={() =>
+                run(
+                  () => actionSaveDraft(toPayload(false)),
+                  "수정 메모를 저장했습니다",
+                )
+              }
+            >
+              메모 저장
+            </Button>
+            {canEditBlock ? (
+              <Button
+                variant="secondary"
+                disabled={pending || !memo.trim()}
+                onClick={() =>
+                  run(
+                    () => actionSaveDraft(toPayload(true)),
+                    "검토 요청을 제출했습니다",
+                  )
                 }
-                await actionSaveDraft({
-                  ...toPayload(false),
-                  narrative: changeMemo,
-                });
-                const result = await actionGenerateNarrative(
-                  detail.block.code,
-                  changeMemo,
-                );
-                if (result?.narrative) {
-                  setReport(result.narrative);
-                }
-              }, "보고서를 생성해 저장했습니다")
-            }
-          >
-            {pending ? "생성 중…" : "보고서 생성"}
-          </Button>
-        </div>
-        <Label className="mb-1 block text-xs text-muted-foreground">
-          생성 결과 (직접 수정 가능)
-        </Label>
-        <textarea
-          className="min-h-48 w-full rounded-md border p-3 text-sm leading-relaxed"
-          value={report}
-          disabled={!canEdit}
-          onChange={(e) => setReport(e.target.value)}
-          placeholder="「보고서 생성」을 누르면 여기에 결과가 나타납니다"
-        />
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            disabled={pending || !canEdit || !report.trim()}
-            onClick={() =>
-              run(() => actionSaveDraft(toPayload(false)), "초안을 저장했습니다")
-            }
-          >
-            초안 저장
-          </Button>
-          <Button
-            variant="secondary"
-            disabled={pending || !canEdit || !report.trim()}
-            onClick={() =>
-              run(
-                () => actionSaveDraft(toPayload(true)),
-                "검토 요청을 제출했습니다",
-              )
-            }
-          >
-            제출
-          </Button>
-        </div>
-      </section>
+              >
+                제출
+              </Button>
+            ) : null}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

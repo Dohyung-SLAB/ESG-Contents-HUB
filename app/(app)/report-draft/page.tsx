@@ -33,8 +33,8 @@ function ContentArticle({
   const narrative = item.version.narrative?.trim() || "";
   const headingClass =
     headingLevel === "h3"
-      ? "text-[1.35rem] font-bold tracking-tight text-[#0f2744]"
-      : "text-[1.15rem] font-bold tracking-tight text-[#0f2744]";
+      ? "text-[1.35rem] font-bold tracking-tight text-[var(--brand-ink)]"
+      : "text-[1.15rem] font-bold tracking-tight text-[var(--brand-ink)]";
 
   return (
     <article id={`block-${item.block.id}`} className="scroll-mt-28">
@@ -47,7 +47,7 @@ function ContentArticle({
       {narrative ? (
         <NarrativePreview
           narrative={narrative}
-          className="mt-3 space-y-3 text-[0.95rem] leading-[1.85] text-[#1f2937]"
+          className="mt-3 space-y-3 text-[0.95rem] leading-[1.85] text-[#3d3330]"
         />
       ) : (
         <p className="mt-3 text-sm text-muted-foreground">(서술 없음)</p>
@@ -178,7 +178,7 @@ export default async function ReportDraftPage({
           {/* Document-style preview (category → nested content) */}
           <section className="rounded-lg border border-slate-200 bg-white px-5 py-6 shadow-sm sm:px-8 sm:py-8">
             <header className="border-b border-slate-200 pb-4">
-              <h1 className="text-2xl font-bold tracking-tight text-[#0f2744]">
+              <h1 className="text-2xl font-bold tracking-tight text-[var(--brand-ink)]">
                 {model.companyName} {model.reportingYear} 지속가능경영보고서 초안
               </h1>
               <p className="mt-1 text-sm text-slate-500">
@@ -201,7 +201,7 @@ export default async function ReportDraftPage({
                     className="scroll-mt-24"
                   >
                     {/* Top-level category (TOC), report chapter style */}
-                    <h2 className="text-[1.5rem] font-bold tracking-tight text-[#0f2744]">
+                    <h2 className="text-[1.5rem] font-bold tracking-tight text-[var(--brand-ink)]">
                       {sIdx + 1}. {section.title}
                     </h2>
 
@@ -217,7 +217,7 @@ export default async function ReportDraftPage({
                           className="scroll-mt-24"
                         >
                           {cat.title ? (
-                            <h3 className="mb-5 text-lg font-bold text-[#0f2744]">
+                            <h3 className="mb-5 text-lg font-bold text-[var(--brand-ink)]">
                               {cat.title}
                             </h3>
                           ) : null}

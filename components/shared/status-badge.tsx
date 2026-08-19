@@ -3,21 +3,21 @@ import type { ChangeType, ContentStatus } from "@/types/enums";
 import { cn } from "@/lib/utils";
 
 const statusClass: Record<ContentStatus, string> = {
-  NOT_STARTED: "bg-slate-100 text-slate-700",
-  IN_PROGRESS: "bg-sky-100 text-sky-800",
-  SUBMITTED: "bg-amber-100 text-amber-800",
-  UNDER_REVIEW: "bg-indigo-100 text-indigo-800",
-  REVISION_REQUESTED: "bg-orange-100 text-orange-800",
-  APPROVED: "bg-emerald-100 text-emerald-800",
-  ARCHIVED: "bg-slate-200 text-slate-600",
+  NOT_STARTED: "bg-[#ebe3df] text-[#88726d]",
+  IN_PROGRESS: "bg-[#e8f0dc] text-[#005700]",
+  SUBMITTED: "bg-[#f0e6e0] text-[#88726d]",
+  UNDER_REVIEW: "bg-[#ebe3df] text-[#5c4a46]",
+  REVISION_REQUESTED: "bg-[#f5e0e0] text-[#970404]",
+  APPROVED: "bg-[#e2efd4] text-[#005700]",
+  ARCHIVED: "bg-[#ebe3df] text-[#88726d]",
 };
 
 const changeClass: Record<ChangeType, string> = {
-  PENDING: "bg-slate-100 text-slate-700",
-  NO_CHANGE: "bg-slate-100 text-slate-600",
-  MODIFIED: "bg-blue-100 text-blue-800",
-  NEW: "bg-violet-100 text-violet-800",
-  DELETED: "bg-rose-100 text-rose-800",
+  PENDING: "bg-[#ebe3df] text-[#88726d]",
+  NO_CHANGE: "bg-[#ebe3df] text-[#88726d]",
+  MODIFIED: "bg-[#efe6e2] text-[#5c4a46]",
+  NEW: "bg-[#e8f0dc] text-[#418a04]",
+  DELETED: "bg-[#f5e0e0] text-[#970404]",
 };
 
 export function StatusBadge({ status }: { status: ContentStatus }) {

@@ -53,7 +53,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(160deg,#0b1f3a_0%,#132f54_45%,#e8eef6_45%,#f4f7fb_100%)] px-4">
+    <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(160deg,#005700_0%,#064206_45%,#ebe3df_45%,#f6f2f0_100%)] px-4">
       <Card className="w-full max-w-md border-slate-200/80 shadow-lg">
         <CardHeader className="space-y-2">
           <p className="text-sm font-semibold text-[var(--brand-navy)]">
