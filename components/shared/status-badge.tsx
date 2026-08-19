@@ -3,20 +3,20 @@ import type { ChangeType, ContentStatus } from "@/types/enums";
 import { cn } from "@/lib/utils";
 
 const statusClass: Record<ContentStatus, string> = {
-  NOT_STARTED: "bg-[#ebe3df] text-[#88726d]",
-  IN_PROGRESS: "bg-[#e8f0dc] text-[#005700]",
-  SUBMITTED: "bg-[#f0e6e0] text-[#88726d]",
-  UNDER_REVIEW: "bg-[#ebe3df] text-[#5c4a46]",
+  NOT_STARTED: "bg-[#e8ebf1] text-[#5a6570]",
+  IN_PROGRESS: "bg-[#dfe6f0] text-[#32466b]",
+  SUBMITTED: "bg-[#f3e0e0] text-[#970404]",
+  UNDER_REVIEW: "bg-[#e8e0ef] text-[#533c72]",
   REVISION_REQUESTED: "bg-[#f5e0e0] text-[#970404]",
-  APPROVED: "bg-[#e2efd4] text-[#005700]",
-  ARCHIVED: "bg-[#ebe3df] text-[#88726d]",
+  APPROVED: "bg-[#d9e4ef] text-[#32466b]",
+  ARCHIVED: "bg-[#e8ebf1] text-[#5a6570]",
 };
 
 const changeClass: Record<ChangeType, string> = {
-  PENDING: "bg-[#ebe3df] text-[#88726d]",
-  NO_CHANGE: "bg-[#ebe3df] text-[#88726d]",
-  MODIFIED: "bg-[#efe6e2] text-[#5c4a46]",
-  NEW: "bg-[#e8f0dc] text-[#418a04]",
+  PENDING: "bg-[#e8ebf1] text-[#5a6570]",
+  NO_CHANGE: "bg-[#e8ebf1] text-[#5a6570]",
+  MODIFIED: "bg-[#e8e0ef] text-[#533c72]",
+  NEW: "bg-[#dfe6f0] text-[#32466b]",
   DELETED: "bg-[#f5e0e0] text-[#970404]",
 };
 

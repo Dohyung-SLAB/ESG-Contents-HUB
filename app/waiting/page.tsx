@@ -19,7 +19,7 @@ export default async function WaitingPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[linear-gradient(165deg,#005700_0%,#064206_42%,#f6f2f0_42%)]">
+    <div className="flex min-h-screen flex-col bg-[linear-gradient(165deg,#32466b_0%,#2f4858_42%,#f4f5f8_42%)]">
       <header className="flex h-14 items-center justify-between px-6">
         <p className="text-sm font-semibold text-white">ESG Content Hub</p>
         <p className="text-sm text-slate-300">{user.email}</p>

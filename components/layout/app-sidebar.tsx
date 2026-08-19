@@ -65,14 +65,14 @@ export function AppSidebar({ role }: { role: UserRole }) {
               className={cn(
                 "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[0.85rem] transition-colors",
                 active
-                  ? "bg-sidebar-accent font-medium text-white shadow-[inset_3px_0_0_0_var(--brand-leaf)]"
-                  : "text-[#bea6a0] hover:bg-sidebar-accent hover:text-white",
+                  ? "bg-sidebar-accent font-medium text-white shadow-[inset_3px_0_0_0_var(--brand-red)]"
+                  : "text-[#b8c2d0] hover:bg-sidebar-accent hover:text-white",
               )}
             >
               <Icon
                 className={cn(
                   "size-4 shrink-0",
-                  active ? "text-[var(--brand-leaf)]" : "text-[#88726d]",
+                  active ? "text-[#f0a0a0]" : "text-[#8896a8]",
                 )}
               />
               {label}

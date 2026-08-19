@@ -47,7 +47,7 @@ function ContentArticle({
       {narrative ? (
         <NarrativePreview
           narrative={narrative}
-          className="mt-3 space-y-3 text-[0.95rem] leading-[1.85] text-[#3d3330]"
+          className="mt-3 space-y-3 text-[0.95rem] leading-[1.85] text-[#2f4858]"
         />
       ) : (
         <p className="mt-3 text-sm text-muted-foreground">(서술 없음)</p>
