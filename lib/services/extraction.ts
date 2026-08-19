@@ -229,7 +229,7 @@ HARD RULES:
 1) Produce EXACTLY one candidate per SEGMENT. Never merge/drop.
 2) Do NOT invent facts/numbers. Do NOT summarize or shorten prose.
 3) narrative = FULL SOURCE text of that segment (nearly verbatim), tables as Markdown.
-4) Images/charts: omit visuals; keep captions only.
+4) Images/charts: omit pixel graphics; KEEP captions (그림/차트/Figure …) as their own lines so the UI can show the source page.
 5) title MUST equal TITLE_HINT exactly.
 6) section = "${input.tocSection}" and append " > PARENT_CATEGORY" when PARENT_CATEGORY is set.
 7) subTopic = PARENT_CONTENT when KIND=target, else TITLE_HINT.
@@ -1013,7 +1013,12 @@ export async function approveCandidate(candidateId: string, issueId?: string) {
       owner_department: user.department,
       owner_user_id: null,
       reviewer_user_id: null,
-      form_schema: {},
+      form_schema: {
+        source_pdf_path:
+          store.extraction_jobs.find((j) => j.id === candidate.job_id)
+            ?.storage_path ?? null,
+        source_page: candidate.source_page,
+      },
       display_order: store.content_blocks.length + 1,
       is_active: true,
       esg_frameworks: candidate.esg_frameworks ?? [],
@@ -1117,7 +1122,7 @@ export async function approveCandidate(candidateId: string, issueId?: string) {
 
   const { data: job } = await admin
     .from("extraction_jobs")
-    .select("original_filename")
+    .select("original_filename, storage_path")
     .eq("id", candidate.job_id)
     .maybeSingle();
 
@@ -1134,7 +1139,10 @@ export async function approveCandidate(candidateId: string, issueId?: string) {
     owner_department: user.department,
     owner_user_id: null,
     reviewer_user_id: null,
-    form_schema: {},
+    form_schema: {
+      source_pdf_path: job?.storage_path ?? null,
+      source_page: candidate.source_page,
+    },
     display_order: (count ?? 0) + 1,
     is_active: true,
     esg_frameworks: candidate.esg_frameworks ?? [],

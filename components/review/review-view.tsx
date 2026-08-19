@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { EvidenceCheckBody } from "@/components/shared/evidence-check-body";
+import { NarrativePreview } from "@/components/extraction/narrative-preview";
+import { SourcePagePreview } from "@/components/extraction/source-page-preview";
 import {
   FrameworkTagsBadges,
   FrameworkTagsEditor,
@@ -49,9 +51,14 @@ type Detail = {
     title: string;
     esg_frameworks?: string[] | null;
     disclosure_frameworks?: string[] | null;
+    form_schema?: Record<string, unknown> | null;
   };
-  previous: { narrative: string | null } | null;
-  current: { narrative: string | null; status: ContentStatus } | null;
+  previous: { narrative: string | null; source_page?: number | null } | null;
+  current: {
+    narrative: string | null;
+    status: ContentStatus;
+    source_page?: number | null;
+  } | null;
   previous_key_facts: KeyFact[];
   current_key_facts: KeyFact[];
   evidences: Array<{
@@ -267,9 +274,13 @@ export function ReviewView({
               <div className="grid gap-3 md:grid-cols-2">
                 <div>
                   <h3 className="mb-1 font-medium">Previous</h3>
-                  <p className="rounded bg-slate-50 p-2">
-                    {detail.previous?.narrative ?? "—"}
-                  </p>
+                  <div className="rounded bg-slate-50 p-2">
+                    {detail.previous?.narrative?.trim() ? (
+                      <NarrativePreview narrative={detail.previous.narrative} />
+                    ) : (
+                      "—"
+                    )}
+                  </div>
                   <FactDiff
                     previous={detail.previous_key_facts}
                     current={detail.current_key_facts}
@@ -277,11 +288,29 @@ export function ReviewView({
                 </div>
                 <div>
                   <h3 className="mb-1 font-medium">Proposed</h3>
-                  <p className="rounded bg-slate-50 p-2">
-                    {detail.current?.narrative ?? "—"}
-                  </p>
+                  <div className="rounded bg-slate-50 p-2">
+                    {detail.current?.narrative?.trim() ? (
+                      <NarrativePreview narrative={detail.current.narrative} />
+                    ) : (
+                      "—"
+                    )}
+                  </div>
                 </div>
               </div>
+              <SourcePagePreview
+                storagePath={
+                  typeof detail.block.form_schema?.source_pdf_path === "string"
+                    ? detail.block.form_schema.source_pdf_path
+                    : null
+                }
+                page={
+                  (typeof detail.block.form_schema?.source_page === "number"
+                    ? detail.block.form_schema.source_page
+                    : null) ??
+                  detail.previous?.source_page ??
+                  detail.current?.source_page
+                }
+              />
 
               <div>
                 <h3 className="mb-1 font-medium">Evidence</h3>

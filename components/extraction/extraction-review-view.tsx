@@ -12,6 +12,7 @@ import {
   actionUpdateCandidate,
 } from "@/lib/actions";
 import { NarrativePreview } from "@/components/extraction/narrative-preview";
+import { SourcePagePreview } from "@/components/extraction/source-page-preview";
 import { FrameworkTagsEditor } from "@/components/shared/framework-tags";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -304,7 +305,11 @@ export function ExtractionReviewView({
                 <span className="text-muted-foreground">Page:</span>{" "}
                 {active.source_page}
               </p>
-              <p className="whitespace-pre-wrap rounded bg-slate-50 p-2">
+              <SourcePagePreview
+                storagePath={job.storage_path}
+                page={active.source_page}
+              />
+              <p className="max-h-40 overflow-y-auto whitespace-pre-wrap rounded bg-slate-50 p-2 text-xs">
                 {active.source_text}
               </p>
               <label className="block space-y-1">

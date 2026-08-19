@@ -5,6 +5,8 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { actionAssignOwnerDepartment, actionUpdateBlockSection } from "@/lib/actions";
+import { NarrativePreview } from "@/components/extraction/narrative-preview";
+import { SourcePagePreview } from "@/components/extraction/source-page-preview";
 import { ChangeTypeBadge, StatusBadge } from "@/components/shared/status-badge";
 import {
   FrameworkTagsBadges,
@@ -358,16 +360,38 @@ export function LibraryView({
             ) : null}
             <div>
               <h3 className="mb-1 font-medium">Previous Narrative (2026)</h3>
-              <p className="rounded-md bg-slate-50 p-2 text-muted-foreground">
-                {selected.previous?.narrative ?? "—"}
-              </p>
+              <div className="rounded-md bg-slate-50 p-2 text-muted-foreground">
+                {selected.previous?.narrative?.trim() ? (
+                  <NarrativePreview narrative={selected.previous.narrative} />
+                ) : (
+                  "—"
+                )}
+              </div>
             </div>
             <div>
               <h3 className="mb-1 font-medium">Current Narrative (2027)</h3>
-              <p className="rounded-md bg-slate-50 p-2 text-muted-foreground">
-                {selected.current?.narrative ?? "—"}
-              </p>
+              <div className="rounded-md bg-slate-50 p-2 text-muted-foreground">
+                {selected.current?.narrative?.trim() ? (
+                  <NarrativePreview narrative={selected.current.narrative} />
+                ) : (
+                  "—"
+                )}
+              </div>
             </div>
+            <SourcePagePreview
+              storagePath={
+                typeof selected.block.form_schema?.source_pdf_path === "string"
+                  ? selected.block.form_schema.source_pdf_path
+                  : null
+              }
+              page={
+                (typeof selected.block.form_schema?.source_page === "number"
+                  ? selected.block.form_schema.source_page
+                  : null) ??
+                selected.previous?.source_page ??
+                selected.current?.source_page
+              }
+            />
             <div>
               <h3 className="mb-1 font-medium">Key Facts</h3>
               <FactList label="2026" facts={selected.previous_key_facts} />

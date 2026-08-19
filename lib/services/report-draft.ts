@@ -408,6 +408,17 @@ function narrativeToDocx(narrative: string | null | undefined) {
       }
       continue;
     }
+    if (block.type === "figure") {
+      out.push(
+        new Paragraph({
+          children: [new TextRun({ text: block.caption, italics: true })],
+        }),
+      );
+      continue;
+    }
+    if (block.caption) {
+      out.push(new Paragraph({ text: block.caption }));
+    }
 
     const colCount = Math.max(
       block.headers.length,

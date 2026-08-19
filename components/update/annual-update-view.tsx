@@ -8,6 +8,8 @@ import {
   actionSaveDraft,
   actionUploadEvidence,
 } from "@/lib/actions";
+import { NarrativePreview } from "@/components/extraction/narrative-preview";
+import { SourcePagePreview } from "@/components/extraction/source-page-preview";
 import { FrameworkTagsEditor } from "@/components/shared/framework-tags";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
@@ -234,8 +236,26 @@ export function AnnualUpdateView({
         <p className="mb-3 text-xs text-muted-foreground">
           {detail.previous?.reporting_year ?? "—"}년 서술 · 참고용
         </p>
-        <div className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-md bg-slate-50 p-3 text-sm leading-relaxed">
-          {detail.previous?.narrative?.trim() || "작년 서술이 없습니다."}
+        <div className="max-h-64 overflow-y-auto rounded-md bg-slate-50 p-3 text-sm leading-relaxed">
+          {detail.previous?.narrative?.trim() ? (
+            <NarrativePreview narrative={detail.previous.narrative} />
+          ) : (
+            "작년 서술이 없습니다."
+          )}
+        </div>
+        <div className="mt-3">
+          <SourcePagePreview
+            storagePath={
+              typeof detail.block.form_schema?.source_pdf_path === "string"
+                ? detail.block.form_schema.source_pdf_path
+                : null
+            }
+            page={
+              (typeof detail.block.form_schema?.source_page === "number"
+                ? detail.block.form_schema.source_page
+                : null) ?? detail.previous?.source_page
+            }
+          />
         </div>
       </section>
 
