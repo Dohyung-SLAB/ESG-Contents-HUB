@@ -3,12 +3,14 @@ import { getPilotStore } from "@/lib/data/pilot-store";
 import { getSessionUser } from "@/lib/data/session";
 import { getActiveWorkspace, listIssuesForActiveProject } from "@/lib/services/projects";
 import { listActivityPhotosForVersion } from "@/lib/services/activity-photos";
+import { mergeConsultantGuidesIntoSchema } from "@/lib/consultant-guides";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type {
   ContentBlock,
   ContentVersion,
   Evidence,
+  FormSchema,
   KeyFact,
   Profile,
 } from "@/types/database";
@@ -426,6 +428,7 @@ export async function updateContentBlockFields(
     title: string;
     esg_frameworks: string[];
     disclosure_frameworks: string[];
+    form_schema: FormSchema;
   }>,
 ): Promise<ContentBlock> {
   const resolved = await resolveBlockId(blockIdOrCode);
@@ -451,6 +454,9 @@ export async function updateContentBlockFields(
   if (patch.disclosure_frameworks !== undefined) {
     cleaned.disclosure_frameworks = patch.disclosure_frameworks;
   }
+  if (patch.form_schema !== undefined) {
+    cleaned.form_schema = patch.form_schema;
+  }
 
   if (!isSupabaseConfigured()) {
     const store = getPilotStore();
@@ -469,6 +475,26 @@ export async function updateContentBlockFields(
     .single();
   if (error) throw new Error(error.message);
   return data as ContentBlock;
+}
+
+/** Consultant-only: save disclosure / evaluation writing guides on the block. */
+export async function updateConsultantGuides(
+  blockIdOrCode: string,
+  guides: { disclosure: string; evaluation: string },
+): Promise<ContentBlock> {
+  const user = await getSessionUser();
+  if (user.role !== "ADMIN") {
+    throw new Error("공시·평가 가이드는 컨설턴트(ADMIN)만 작성할 수 있습니다.");
+  }
+  const detail = await getBlockDetail(
+    (await resolveBlockId(blockIdOrCode)) ?? blockIdOrCode,
+  );
+  if (!detail) throw new Error("콘텐츠 블록을 찾을 수 없습니다.");
+  const nextSchema = mergeConsultantGuidesIntoSchema(
+    detail.block.form_schema,
+    guides,
+  );
+  return updateContentBlockFields(detail.block.id, { form_schema: nextSchema });
 }
 
 export async function getCompanyAndProject() {

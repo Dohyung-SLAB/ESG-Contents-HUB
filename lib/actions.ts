@@ -53,6 +53,7 @@ import {
 import {
   updateContentBlockFields,
   updateContentBlockFrameworks,
+  updateConsultantGuides,
 } from "@/lib/services/library";
 import { saveAnnualUpdateDraft } from "@/lib/services/update";
 import {
@@ -543,6 +544,16 @@ export async function actionUpdateBlockSection(
   revalidatePath("/report-draft");
   revalidatePath("/review");
   revalidatePath(`/update/${result.code}`);
+  return result;
+}
+
+export async function actionUpdateConsultantGuides(
+  blockId: string,
+  guides: { disclosure: string; evaluation: string },
+) {
+  const result = await updateConsultantGuides(blockId, guides);
+  revalidatePath(`/update/${result.code}`);
+  revalidatePath("/library");
   return result;
 }
 
