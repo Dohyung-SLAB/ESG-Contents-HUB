@@ -10,6 +10,7 @@ import {
 } from "@/lib/services/library";
 import {
   canAssignOwnerDepartment,
+  canAssignNewContentToDepartment,
   canViewContentBlock,
 } from "@/lib/services/permissions";
 import { getActiveWorkspace } from "@/lib/services/projects";
@@ -54,7 +55,7 @@ export default async function LibraryPage({
     <div>
       <PageHeader
         title="Content Library"
-        description={`${company.name} ${project.reporting_year} · ${project.name} 콘텐츠 블록을 조회합니다.`}
+        description={`${company.name} ${project.reporting_year} · ${project.name} 콘텐츠 블록을 조회합니다. 전년 없는 항목은 현업에 신규 작성을 요청할 수 있습니다.`}
       />
       <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
         <LibraryView
@@ -62,6 +63,9 @@ export default async function LibraryPage({
           selected={selectedVisible}
           canAssignDepartment={canAssignOwnerDepartment(user.role)}
           canEditSection={user.role === "ADMIN"}
+          canAssignNewContent={canAssignNewContentToDepartment(user.role)}
+          role={user.role}
+          userDepartment={user.department}
           knownSections={Array.from(
             new Set(rows.map((r) => r.section).filter(Boolean) as string[]),
           )}

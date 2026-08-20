@@ -13,6 +13,7 @@ export const ROLE_GUIDE: Record<
     can: [
       "고객사/프로젝트 생성·삭제",
       "컨텐츠 작성 부서 지정",
+      "전년 없는 신규 컨텐츠를 Library에 추가·현업 작성 요청",
       "신규 컨텐츠 요청 승인/반려",
       "전체 컨텐츠 조회·수정 지원",
       "리뷰 승인/반려",
@@ -25,6 +26,7 @@ export const ROLE_GUIDE: Record<
       "해당 고객사 ESG팀 책임/담당자. 작성 부서를 지정하고, 제출된 컨텐츠를 검토·승인합니다.",
     can: [
       "컨텐츠 작성 부서 지정",
+      "전년 없는 신규 컨텐츠를 Library에 추가·현업 작성 요청",
       "신규 컨텐츠 요청 승인/반려",
       "리뷰 시작/승인/수정요청",
       "전체 컨텐츠 조회",
@@ -78,6 +80,11 @@ export function canDeleteProject(role: UserRole) {
 }
 
 export function canAssignOwnerDepartment(role: UserRole) {
+  return role === "ADMIN" || role === "REVIEWER";
+}
+
+/** Consultant/ESG may create NEW library blocks and assign 현업 to write them. */
+export function canAssignNewContentToDepartment(role: UserRole) {
   return role === "ADMIN" || role === "REVIEWER";
 }
 

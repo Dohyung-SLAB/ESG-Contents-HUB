@@ -48,6 +48,11 @@ export default async function UpdateIndexPage() {
           role={user.role}
           userDepartment={user.department}
           knownSections={knownSections}
+          mode={
+            user.role === "ADMIN" || user.role === "REVIEWER"
+              ? "assignment"
+              : "request"
+          }
         />
       ) : null}
 

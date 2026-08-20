@@ -28,6 +28,8 @@ export type NewContentMeta = {
   reviewed_by: string | null;
   reviewed_at: string | null;
   reject_reason: string | null;
+  /** consultant = Library/Update assignment by ADMIN/REVIEWER; contributor = 현업 요청 */
+  assignment_source: "consultant" | "contributor" | null;
 };
 
 export function getNewContentMeta(
@@ -40,6 +42,7 @@ export function getNewContentMeta(
     status === "APPROVED" || status === "REJECTED"
       ? status
       : "PENDING_APPROVAL";
+  const source = String(fs.assignment_source ?? "");
   return {
     origin: "manual_new",
     request_status,
@@ -55,6 +58,8 @@ export function getNewContentMeta(
       typeof fs.reviewed_at === "string" ? fs.reviewed_at : null,
     reject_reason:
       typeof fs.reject_reason === "string" ? fs.reject_reason : null,
+    assignment_source:
+      source === "consultant" || source === "contributor" ? source : null,
   };
 }
 
@@ -90,16 +95,19 @@ function buildRequestSchema(input: {
   note: string | null;
   userId: string;
   ts: string;
+  /** Consultant/ESG assigning work to a department — unlocked immediately. */
+  autoApprove: boolean;
 }): FormSchema {
   return {
     origin: "manual_new",
-    request_status: "PENDING_APPROVAL",
+    request_status: input.autoApprove ? "APPROVED" : "PENDING_APPROVAL",
     request_note: input.note,
     requested_by: input.userId,
     requested_at: input.ts,
-    reviewed_by: null,
-    reviewed_at: null,
+    reviewed_by: input.autoApprove ? input.userId : null,
+    reviewed_at: input.autoApprove ? input.ts : null,
     reject_reason: null,
+    assignment_source: input.autoApprove ? "consultant" : "contributor",
   };
 }
 
@@ -124,6 +132,9 @@ export async function createNewContentRequest(input: CreateNewContentInput) {
     throw new Error("작성 부서를 지정하세요.");
   }
 
+  // Consultant/ESG creating a Library assignment → 현업 can write immediately.
+  const autoApprove = user.role === "ADMIN" || user.role === "REVIEWER";
+
   const workspace = await getActiveWorkspace();
   const issueId =
     input.issue_id?.trim() || workspace.defaultIssue?.id || null;
@@ -138,7 +149,9 @@ export async function createNewContentRequest(input: CreateNewContentInput) {
     note,
     userId: user.id,
     ts,
+    autoApprove,
   });
+  const requestStatus = autoApprove ? "APPROVED" : "PENDING_APPROVAL";
 
   if (!isSupabaseConfigured()) {
     const store = getPilotStore();
@@ -189,9 +202,14 @@ export async function createNewContentRequest(input: CreateNewContentInput) {
       entity_type: "content_blocks",
       entity_id: blockId,
       before_data: null,
-      after_data: { code, origin: "manual_new", request_status: "PENDING_APPROVAL" },
+      after_data: {
+        code,
+        origin: "manual_new",
+        request_status: requestStatus,
+        assignment_source: autoApprove ? "consultant" : "contributor",
+      },
     });
-    return { blockId, code, versionId };
+    return { blockId, code, versionId, autoApproved: autoApprove };
   }
 
   const admin = createSupabaseAdminClient();
@@ -250,10 +268,15 @@ export async function createNewContentRequest(input: CreateNewContentInput) {
     entity_type: "content_blocks",
     entity_id: blockId,
     before_data: null,
-    after_data: { code, origin: "manual_new", request_status: "PENDING_APPROVAL" },
+    after_data: {
+      code,
+      origin: "manual_new",
+      request_status: requestStatus,
+      assignment_source: autoApprove ? "consultant" : "contributor",
+    },
   });
 
-  return { blockId, code, versionId };
+  return { blockId, code, versionId, autoApproved: autoApprove };
 }
 
 export async function approveNewContentRequest(blockIdOrCode: string) {

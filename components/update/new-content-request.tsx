@@ -23,11 +23,17 @@ export function NewContentRequestForm({
   role,
   userDepartment,
   knownSections,
+  /** assignment = consultant/ESG creates for 현업 (Library); request = 현업 asks for approval */
+  mode = "request",
+  redirectTo = "update",
 }: {
   role: UserRole;
   userDepartment: string | null;
   knownSections: string[];
+  mode?: "assignment" | "request";
+  redirectTo?: "update" | "library";
 }) {
+  const isAssignment = mode === "assignment" || role !== "CONTRIBUTOR";
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
@@ -43,10 +49,25 @@ export function NewContentRequestForm({
   const [customDept, setCustomDept] = useState(false);
   const [note, setNote] = useState("");
 
+  const buttonLabel = isAssignment
+    ? "현업에 신규 작성 요청"
+    : "신규 컨텐츠 요청";
+  const heading = isAssignment
+    ? "현업 신규 작성 요청"
+    : "신규 컨텐츠 요청";
+  const description = isAssignment
+    ? "전년 보고서에 없는 항목을 Content Library에 추가하고, 지정한 현업 부서에 작성을 요청합니다. 생성 즉시 현업이 Annual Update에서 작성할 수 있습니다."
+    : "전년 보고서에 없던 항목을 요청합니다. 컨설턴트/ESG 승인 후 본문을 작성할 수 있습니다.";
+  const submitLabel = isAssignment ? "Library에 추가 · 현업 요청" : "요청 제출";
+  const noteLabel = isAssignment ? "현업 안내 메모 (선택)" : "요청 사유 (선택)";
+  const notePlaceholder = isAssignment
+    ? "예: 올해 신규 공시 항목이므로 프로세스 개요와 담당 조직을 작성해 주세요."
+    : "왜 올해 신규로 필요한지 짧게 적어 주세요.";
+
   if (!open) {
     return (
       <Button type="button" size="sm" onClick={() => setOpen(true)}>
-        신규 컨텐츠 요청
+        {buttonLabel}
       </Button>
     );
   }
@@ -55,7 +76,7 @@ export function NewContentRequestForm({
     <div className="rounded-lg border bg-white p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-[var(--brand-navy)]">
-          신규 컨텐츠 요청
+          {heading}
         </h3>
         <button
           type="button"
@@ -65,10 +86,7 @@ export function NewContentRequestForm({
           닫기
         </button>
       </div>
-      <p className="mb-3 text-xs text-muted-foreground">
-        전년 보고서에 없던 항목을 요청합니다. 컨설턴트/ESG 승인 후 본문을 작성할 수
-        있습니다.
-      </p>
+      <p className="mb-3 text-xs text-muted-foreground">{description}</p>
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="space-y-1 sm:col-span-2">
           <span className="text-[11px] text-muted-foreground">제목</span>
@@ -81,12 +99,12 @@ export function NewContentRequestForm({
         <label className="space-y-1 sm:col-span-2">
           <span className="text-[11px] text-muted-foreground">Section (목차)</span>
           <Input
-            list="new-content-sections"
+            list={`new-content-sections-${mode}`}
             value={section}
             onChange={(e) => setSection(e.target.value)}
             placeholder="예: 인권경영 &gt; 거버넌스"
           />
-          <datalist id="new-content-sections">
+          <datalist id={`new-content-sections-${mode}`}>
             {knownSections.map((s) => (
               <option key={s} value={s} />
             ))}
@@ -100,14 +118,16 @@ export function NewContentRequestForm({
             placeholder="세부 주제"
           />
         </label>
-        {role === "CONTRIBUTOR" ? (
+        {role === "CONTRIBUTOR" && !isAssignment ? (
           <label className="space-y-1">
             <span className="text-[11px] text-muted-foreground">작성 부서</span>
             <Input value={userDepartment ?? ""} disabled />
           </label>
         ) : (
           <label className="space-y-1">
-            <span className="text-[11px] text-muted-foreground">작성 부서</span>
+            <span className="text-[11px] text-muted-foreground">
+              작성 부서 (현업)
+            </span>
             {customDept ? (
               <Input
                 value={department}
@@ -167,14 +187,12 @@ export function NewContentRequestForm({
           </select>
         </label>
         <label className="space-y-1 sm:col-span-2">
-          <span className="text-[11px] text-muted-foreground">
-            요청 사유 (선택)
-          </span>
+          <span className="text-[11px] text-muted-foreground">{noteLabel}</span>
           <textarea
             className="min-h-20 w-full rounded-md border p-2 text-sm"
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="왜 올해 신규로 필요한지 짧게 적어 주세요."
+            placeholder={notePlaceholder}
           />
         </label>
       </div>
@@ -194,7 +212,9 @@ export function NewContentRequestForm({
                   content_type: contentType,
                   update_type: updateType,
                   owner_department:
-                    role === "CONTRIBUTOR" ? userDepartment : department,
+                    role === "CONTRIBUTOR" && !isAssignment
+                      ? userDepartment
+                      : department,
                   request_note: note.trim() || null,
                 });
                 setOpen(false);
@@ -202,7 +222,11 @@ export function NewContentRequestForm({
                 setSection("");
                 setSubTopic("");
                 setNote("");
-                router.push(`/update/${result.code}`);
+                if (redirectTo === "library") {
+                  router.push(`/library?blockId=${result.code}`);
+                } else {
+                  router.push(`/update/${result.code}`);
+                }
                 router.refresh();
               } catch (e) {
                 setError(e instanceof Error ? e.message : "요청 실패");
@@ -210,7 +234,7 @@ export function NewContentRequestForm({
             });
           }}
         >
-          요청 제출
+          {submitLabel}
         </Button>
         <Button
           size="sm"

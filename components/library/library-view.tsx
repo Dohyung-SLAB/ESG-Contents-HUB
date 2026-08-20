@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { actionAssignOwnerDepartment, actionUpdateBlockSection } from "@/lib/actions";
 import { NarrativePreview } from "@/components/extraction/narrative-preview";
 import { SourcePagePreview } from "@/components/extraction/source-page-preview";
+import { NewContentRequestForm } from "@/components/update/new-content-request";
 import { ChangeTypeBadge, StatusBadge } from "@/components/shared/status-badge";
 import {
   FrameworkTagsBadges,
@@ -23,8 +24,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { LibraryBlockRow } from "@/lib/services/library";
+import { getNewContentMeta } from "@/lib/services/new-content";
 import { PILOT_DEPARTMENTS } from "@/lib/services/permissions";
 import type { ContentBlock, ContentVersion, KeyFact } from "@/types/database";
+import type { UserRole } from "@/types/enums";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -49,12 +52,19 @@ export function LibraryView({
   canAssignDepartment = false,
   canEditSection = false,
   knownSections = [],
+  canAssignNewContent = false,
+  role = "ADMIN",
+  userDepartment = null,
 }: {
   rows: LibraryBlockRow[];
   selected: Detail | null;
   canAssignDepartment?: boolean;
   canEditSection?: boolean;
   knownSections?: string[];
+  /** Consultant/ESG: create NEW block and assign 현업 to write it */
+  canAssignNewContent?: boolean;
+  role?: UserRole;
+  userDepartment?: string | null;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -103,6 +113,16 @@ export function LibraryView({
   }
 
   return (
+    <div className="space-y-2">
+      {canAssignNewContent ? (
+        <NewContentRequestForm
+          role={role}
+          userDepartment={userDepartment}
+          knownSections={knownSections}
+          mode="assignment"
+          redirectTo="library"
+        />
+      ) : null}
     <div className="grid h-[calc(100vh-5.5rem)] grid-cols-[200px_minmax(0,1.1fr)_minmax(400px,1fr)] gap-2">
       <aside className="overflow-y-auto rounded-lg border bg-white p-2">
         <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -270,7 +290,34 @@ export function LibraryView({
                     onClick={() => selectBlock(row.id)}
                   >
                     <TableCell className="font-mono text-xs">{row.code}</TableCell>
-                    <TableCell className="font-medium">{row.title}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span>{row.title}</span>
+                        {(() => {
+                          const meta = getNewContentMeta(row);
+                          if (!meta) return null;
+                          if (meta.request_status === "PENDING_APPROVAL") {
+                            return (
+                              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-900">
+                                승인 대기
+                              </span>
+                            );
+                          }
+                          if (meta.assignment_source === "consultant") {
+                            return (
+                              <span className="rounded bg-[#dfe6f0] px-1.5 py-0.5 text-[10px] text-[#32466b]">
+                                현업 신규 요청
+                              </span>
+                            );
+                          }
+                          return (
+                            <span className="rounded bg-[#dfe6f0] px-1.5 py-0.5 text-[10px] text-[#32466b]">
+                              신규
+                            </span>
+                          );
+                        })()}
+                      </div>
+                    </TableCell>
                     <TableCell>{row.section}</TableCell>
                     <TableCell>{row.content_type}</TableCell>
                     <TableCell>
@@ -441,6 +488,7 @@ export function LibraryView({
           </div>
         )}
       </aside>
+    </div>
     </div>
   );
 }
