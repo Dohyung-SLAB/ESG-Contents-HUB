@@ -4,11 +4,13 @@ import Link from "next/link";
 import { NarrativePreview } from "@/components/extraction/narrative-preview";
 import { PageHeader } from "@/components/layout/page-header";
 import { ReportDraftDownloadButton } from "@/components/report/report-draft-download-button";
+import { ActivityPhotosGallery } from "@/components/update/activity-photos";
 import { buttonVariants } from "@/components/ui/button";
 import { getSessionUser } from "@/lib/data/session";
 import { canAccessNav } from "@/lib/services/permissions";
 import {
   buildReportDraftModel,
+  withActivityPhotoUrls,
   type ReportDraftBlock,
 } from "@/lib/services/report-draft";
 import { cn } from "@/lib/utils";
@@ -23,7 +25,7 @@ function categoryAnchor(sectionTitle: string, categoryTitle: string) {
   return `cat-${encodeURIComponent(`${sectionTitle}__${categoryTitle}`).replace(/%/g, "")}`;
 }
 
-function ContentArticle({
+async function ContentArticle({
   item,
   headingLevel,
 }: {
@@ -35,6 +37,7 @@ function ContentArticle({
     headingLevel === "h3"
       ? "text-[1.35rem] font-bold tracking-tight text-[var(--brand-ink)]"
       : "text-[1.15rem] font-bold tracking-tight text-[var(--brand-ink)]";
+  const photos = await withActivityPhotoUrls(item.activity_photos ?? []);
 
   return (
     <article id={`block-${item.block.id}`} className="scroll-mt-28">
@@ -52,6 +55,8 @@ function ContentArticle({
       ) : (
         <p className="mt-3 text-sm text-muted-foreground">(서술 없음)</p>
       )}
+
+      <ActivityPhotosGallery photos={photos} />
     </article>
   );
 }

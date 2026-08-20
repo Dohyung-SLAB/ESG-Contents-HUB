@@ -2,6 +2,7 @@ import { newId, touch } from "@/lib/data/ids";
 import { getPilotStore } from "@/lib/data/pilot-store";
 import { getSessionUser } from "@/lib/data/session";
 import { getActiveWorkspace, listIssuesForActiveProject } from "@/lib/services/projects";
+import { listActivityPhotosForVersion } from "@/lib/services/activity-photos";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type {
@@ -292,6 +293,9 @@ export async function getBlockDetail(blockId: string) {
   }
 
   const profileList = (profiles ?? []) as Profile[];
+  const activity_photos = current
+    ? await listActivityPhotosForVersion(current.id)
+    : [];
   return {
     block,
     issue: issue ?? null,
@@ -303,6 +307,7 @@ export async function getBlockDetail(blockId: string) {
     current_key_facts: keyFactsFor(current?.id),
     previous_key_facts: keyFactsFor(previous?.id),
     evidences,
+    activity_photos,
   };
 }
 
@@ -337,6 +342,11 @@ function getBlockDetailPilot(blockId: string) {
       evidence: store.evidences.find((e) => e.id === link.evidence_id) ?? null,
     }))
     .filter((x) => x.evidence);
+  const activity_photos = current
+    ? store.activity_photos
+        .filter((p) => p.content_version_id === current.id)
+        .sort((a, b) => a.display_order - b.display_order)
+    : [];
   return {
     block,
     issue: store.issues.find((i) => i.id === block.issue_id) ?? null,
@@ -348,6 +358,7 @@ function getBlockDetailPilot(blockId: string) {
     current_key_facts: keyFactsFor(current?.id),
     previous_key_facts: keyFactsFor(previous?.id),
     evidences,
+    activity_photos,
   };
 }
 

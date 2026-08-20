@@ -17,6 +17,7 @@ import {
 } from "@/lib/seed/samlip-pilot";
 import type {
   AiSuggestion,
+  ActivityPhoto,
   AuditLog,
   Company,
   ContentBlock,
@@ -48,6 +49,7 @@ export type PilotStore = {
   key_facts: KeyFact[];
   evidences: Evidence[];
   content_evidences: ContentEvidence[];
+  activity_photos: ActivityPhoto[];
   reviews: Review[];
   ai_suggestions: AiSuggestion[];
   extraction_jobs: ExtractionJob[];
@@ -236,6 +238,7 @@ function buildInitialStore(): PilotStore {
     key_facts,
     evidences: [],
     content_evidences: [],
+    activity_photos: [],
     reviews: [],
     ai_suggestions: [],
     extraction_jobs: [],
@@ -250,7 +253,9 @@ export function getPilotStore(): PilotStore {
   if (!globalThis.__esgPilotStore) {
     globalThis.__esgPilotStore = buildInitialStore();
   }
-  return globalThis.__esgPilotStore;
+  const store = globalThis.__esgPilotStore;
+  if (!store.activity_photos) store.activity_photos = [];
+  return store;
 }
 
 export function resetPilotStore(): PilotStore {

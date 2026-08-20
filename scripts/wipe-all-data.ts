@@ -13,6 +13,7 @@ const TABLES = [
   "ai_suggestions",
   "reviews",
   "content_evidences",
+  "activity_photos",
   "key_facts",
   "evidences",
   "content_versions",

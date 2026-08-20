@@ -20,6 +20,11 @@ import {
   uploadEvidence,
 } from "@/lib/services/evidence";
 import {
+  deleteActivityPhoto,
+  updateActivityPhotoTitle,
+  uploadActivityPhoto,
+} from "@/lib/services/activity-photos";
+import {
   approveCandidate,
   approveCandidates,
   createExtractionJobFromUpload,
@@ -313,6 +318,38 @@ export async function actionUploadEvidence(input: {
   revalidatePath("/evidence");
   revalidatePath("/library");
   revalidatePath("/update", "layout");
+  return result;
+}
+
+export async function actionUploadActivityPhoto(input: {
+  content_version_id: string;
+  title: string;
+  filename: string;
+  storage_path: string;
+  photo_id?: string;
+}) {
+  const result = await uploadActivityPhoto(input);
+  revalidatePath("/update", "layout");
+  revalidatePath("/library");
+  revalidatePath("/report-draft");
+  return result;
+}
+
+export async function actionUpdateActivityPhotoTitle(
+  photoId: string,
+  title: string,
+) {
+  const result = await updateActivityPhotoTitle(photoId, title);
+  revalidatePath("/update", "layout");
+  revalidatePath("/report-draft");
+  return result;
+}
+
+export async function actionDeleteActivityPhoto(photoId: string) {
+  const result = await deleteActivityPhoto(photoId);
+  revalidatePath("/update", "layout");
+  revalidatePath("/library");
+  revalidatePath("/report-draft");
   return result;
 }
 

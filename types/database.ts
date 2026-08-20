@@ -138,6 +138,19 @@ export type Evidence = {
   updated_at: string;
 };
 
+/** Report-facing activity images (not proof/evidence files). */
+export type ActivityPhoto = {
+  id: string;
+  content_version_id: string;
+  title: string;
+  filename: string;
+  storage_path: string;
+  display_order: number;
+  uploaded_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ContentEvidence = {
   id: string;
   content_version_id: string;

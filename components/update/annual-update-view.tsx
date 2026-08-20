@@ -12,6 +12,7 @@ import {
 } from "@/lib/actions";
 import { NarrativePreview } from "@/components/extraction/narrative-preview";
 import { SourcePagePreview } from "@/components/extraction/source-page-preview";
+import { ActivityPhotosEditor } from "@/components/update/activity-photos";
 import { FrameworkTagsEditor } from "@/components/shared/framework-tags";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,12 @@ import {
   canUseAiNarrativeRevision,
 } from "@/lib/services/permissions";
 import type { UserRole } from "@/types/enums";
-import type { ContentBlock, ContentVersion, KeyFact } from "@/types/database";
+import type {
+  ActivityPhoto,
+  ContentBlock,
+  ContentVersion,
+  KeyFact,
+} from "@/types/database";
 
 type Detail = {
   block: ContentBlock;
@@ -39,6 +45,7 @@ type Detail = {
     link: { id: string; relationship_type: string };
     evidence: { id: string; filename: string } | null;
   }>;
+  activity_photos?: ActivityPhoto[];
 };
 
 const ALLOWED_EXT = [
@@ -380,6 +387,12 @@ export function AnnualUpdateView({
         />
       </section>
 
+      <ActivityPhotosEditor
+        contentVersionId={detail.current?.id}
+        photos={detail.activity_photos ?? []}
+        canEdit={canEditMaterials}
+      />
+
       <section
         className={`rounded-lg border border-dashed bg-white p-3 ${
           dragOver ? "border-[var(--brand-navy)] bg-slate-50" : ""
@@ -394,23 +407,23 @@ export function AnnualUpdateView({
           e.preventDefault();
           setDragOver(false);
           if (!canEditMaterials) return;
-          const file = e.dataTransfer.files?.[0];
-          if (file) uploadFile(file);
+          const dropped = e.dataTransfer.files?.[0];
+          if (dropped) uploadFile(dropped);
         }}
       >
         <h2 className="mb-1 text-base font-semibold text-[var(--brand-navy)]">
           관련 근거 첨부
         </h2>
         <p className="mb-3 text-xs text-muted-foreground">
-          선택 사항입니다. 파일을 첨부하거나 아래 목록에서 확인할 수 있습니다.
+          감사·검증용 증빙 파일입니다. 보고서에 넣는 활동사진은 위 칸을 사용하세요.
         </p>
         <Input
           type="file"
           disabled={!canEditMaterials || pending}
           accept=".pdf,.docx,.xlsx,.pptx,.csv,image/*"
           onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) uploadFile(file);
+            const selected = e.target.files?.[0];
+            if (selected) uploadFile(selected);
           }}
         />
         {attached.length > 0 ? (

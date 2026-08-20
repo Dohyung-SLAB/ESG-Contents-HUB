@@ -1,7 +1,25 @@
 import { newId } from "@/lib/data/ids";
+import { getPilotStore } from "@/lib/data/pilot-store";
+import { parseNarrativeBlocks } from "@/lib/markdown-content";
+import { listActivityPhotosForVersions } from "@/lib/services/activity-photos";
+import {
+  getActiveWorkspace,
+  listIssuesForActiveProject,
+} from "@/lib/services/projects";
+import { toStorageObjectName } from "@/lib/storage-key";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+import type {
+  ActivityPhoto,
+  ContentBlock,
+  ContentVersion,
+  Issue,
+  KeyFact,
+} from "@/types/database";
 import {
   Document,
   HeadingLevel,
+  ImageRun,
   Packer,
   Paragraph,
   Table,
@@ -11,27 +29,12 @@ import {
   WidthType,
 } from "docx";
 
-import { getPilotStore } from "@/lib/data/pilot-store";
-import { parseNarrativeBlocks } from "@/lib/markdown-content";
-import {
-  getActiveWorkspace,
-  listIssuesForActiveProject,
-} from "@/lib/services/projects";
-import { toStorageObjectName } from "@/lib/storage-key";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { isSupabaseConfigured } from "@/lib/supabase/env";
-import type {
-  ContentBlock,
-  ContentVersion,
-  Issue,
-  KeyFact,
-} from "@/types/database";
-
 export type ReportDraftBlock = {
   block: ContentBlock;
   issue: Issue | null;
   version: ContentVersion;
   key_facts: KeyFact[];
+  activity_photos: ActivityPhoto[];
 };
 
 /** Mid-level report category under a TOC section (from `section` path). */
@@ -176,6 +179,9 @@ export async function buildReportDraftModel(options?: {
         key_facts: store.key_facts
           .filter((k) => k.content_version_id === preferred.id)
           .sort((a, b) => a.display_order - b.display_order),
+        activity_photos: store.activity_photos
+          .filter((p) => p.content_version_id === preferred.id)
+          .sort((a, b) => a.display_order - b.display_order),
       });
     }
 
@@ -209,8 +215,9 @@ export async function buildReportDraftModel(options?: {
   const versionList = (versions ?? []) as ContentVersion[];
   const { data: facts } = await admin.from("key_facts").select("*");
   const factList = (facts ?? []) as KeyFact[];
+  const preferredIds: string[] = [];
+  const preferredByBlock = new Map<string, ContentVersion>();
 
-  const draftBlocks: ReportDraftBlock[] = [];
   for (const block of blockList) {
     const versionsForBlock = versionList
       .filter((v) => v.content_block_id === block.id)
@@ -224,6 +231,22 @@ export async function buildReportDraftModel(options?: {
       versionsForBlock.find((v) => !approvedOnly || v.status === "APPROVED") ??
       null;
     if (!preferred) continue;
+    preferredByBlock.set(block.id, preferred);
+    preferredIds.push(preferred.id);
+  }
+
+  const allPhotos = await listActivityPhotosForVersions(preferredIds);
+  const photosByVersion = new Map<string, ActivityPhoto[]>();
+  for (const photo of allPhotos) {
+    const list = photosByVersion.get(photo.content_version_id) ?? [];
+    list.push(photo);
+    photosByVersion.set(photo.content_version_id, list);
+  }
+
+  const draftBlocks: ReportDraftBlock[] = [];
+  for (const block of blockList) {
+    const preferred = preferredByBlock.get(block.id);
+    if (!preferred) continue;
     draftBlocks.push({
       block,
       issue: issueMap.get(block.issue_id) ?? null,
@@ -231,6 +254,7 @@ export async function buildReportDraftModel(options?: {
       key_facts: factList
         .filter((k) => k.content_version_id === preferred.id)
         .sort((a, b) => a.display_order - b.display_order),
+      activity_photos: photosByVersion.get(preferred.id) ?? [],
     });
   }
 
@@ -325,6 +349,9 @@ export async function generateReportDocx(
           }
         }
 
+        const photoParas = await activityPhotosToDocx(item.activity_photos);
+        children.push(...photoParas);
+
         children.push(new Paragraph({ text: "" }));
       }
     }
@@ -392,6 +419,97 @@ export async function createReportDraftDownload(options?: {
     downloadUrl: signed.signedUrl,
     storagePath,
   };
+}
+
+async function downloadActivityPhotoBytes(
+  storagePath: string,
+): Promise<Uint8Array | null> {
+  if (!isSupabaseConfigured()) return null;
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.storage
+    .from("evidences")
+    .download(storagePath);
+  if (error || !data) return null;
+  return new Uint8Array(await data.arrayBuffer());
+}
+
+async function activityPhotosToDocx(
+  photos: ActivityPhoto[],
+): Promise<Paragraph[]> {
+  if (!photos.length) return [];
+  const out: Paragraph[] = [
+    new Paragraph({
+      children: [new TextRun({ text: "활동사진", bold: true })],
+    }),
+  ];
+
+  for (const photo of photos) {
+    out.push(new Paragraph({ text: photo.title }));
+    const bytes = await downloadActivityPhotoBytes(photo.storage_path);
+    if (!bytes) {
+      out.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `(이미지 없음: ${photo.filename})`,
+              italics: true,
+            }),
+          ],
+        }),
+      );
+      continue;
+    }
+    const ext = photo.filename.split(".").pop()?.toLowerCase() ?? "png";
+    const type: "jpg" | "png" | "gif" =
+      ext === "jpg" || ext === "jpeg"
+        ? "jpg"
+        : ext === "gif"
+          ? "gif"
+          : "png";
+    try {
+      out.push(
+        new Paragraph({
+          children: [
+            new ImageRun({
+              data: bytes,
+              transformation: { width: 480, height: 320 },
+              type,
+            }),
+          ],
+        }),
+      );
+    } catch {
+      out.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `(이미지 삽입 실패: ${photo.filename})`,
+              italics: true,
+            }),
+          ],
+        }),
+      );
+    }
+  }
+  return out;
+}
+
+/** Attach short-lived signed URLs for Report Draft web preview. */
+export async function withActivityPhotoUrls(
+  photos: ActivityPhoto[],
+): Promise<Array<ActivityPhoto & { url: string | null }>> {
+  if (!isSupabaseConfigured() || photos.length === 0) {
+    return photos.map((p) => ({ ...p, url: null }));
+  }
+  const admin = createSupabaseAdminClient();
+  const out: Array<ActivityPhoto & { url: string | null }> = [];
+  for (const photo of photos) {
+    const { data } = await admin.storage
+      .from("evidences")
+      .createSignedUrl(photo.storage_path, 600);
+    out.push({ ...photo, url: data?.signedUrl ?? null });
+  }
+  return out;
 }
 
 function narrativeToDocx(narrative: string | null | undefined) {
