@@ -51,6 +51,11 @@ import {
 } from "@/lib/services/library";
 import { saveAnnualUpdateDraft } from "@/lib/services/update";
 import {
+  approveNewContentRequest,
+  createNewContentRequest,
+  rejectNewContentRequest,
+} from "@/lib/services/new-content";
+import {
   DISCLOSURE_FRAMEWORKS,
   ESG_EVAL_FRAMEWORKS,
   normalizeFrameworkList,
@@ -254,6 +259,44 @@ export async function actionSaveDraft(input: {
   revalidatePath(`/update/${input.blockId}`);
   revalidatePath("/library");
   revalidatePath("/review");
+  revalidatePath("/dashboard");
+  return result;
+}
+
+export async function actionCreateNewContentRequest(input: {
+  title: string;
+  section: string;
+  sub_topic?: string | null;
+  content_type: ContentType;
+  update_type: UpdateType;
+  owner_department?: string | null;
+  request_note?: string | null;
+  issue_id?: string | null;
+}) {
+  const result = await createNewContentRequest(input);
+  revalidatePath("/update");
+  revalidatePath("/library");
+  revalidatePath("/dashboard");
+  revalidatePath(`/update/${result.code}`);
+  return result;
+}
+
+export async function actionApproveNewContentRequest(blockId: string) {
+  const result = await approveNewContentRequest(blockId);
+  revalidatePath("/update");
+  revalidatePath("/library");
+  revalidatePath("/dashboard");
+  revalidatePath(`/update/${result.code}`);
+  return result;
+}
+
+export async function actionRejectNewContentRequest(
+  blockId: string,
+  reason?: string | null,
+) {
+  const result = await rejectNewContentRequest(blockId, reason);
+  revalidatePath("/update");
+  revalidatePath("/library");
   revalidatePath("/dashboard");
   return result;
 }

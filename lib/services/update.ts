@@ -6,6 +6,7 @@ import {
 import { getSessionUser } from "@/lib/data/session";
 import { writeAuditLog } from "@/lib/services/audit";
 import { getBlockDetail, resolveBlockId } from "@/lib/services/library";
+import { isNewContentWriteUnlocked } from "@/lib/services/new-content";
 import { canEditContentBlock } from "@/lib/services/permissions";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -63,6 +64,11 @@ export async function saveAnnualUpdateDraft(input: UpdateDraftInput) {
       user.role === "CONTRIBUTOR"
         ? "자기 부서에 지정된 컨텐츠만 수정할 수 있습니다."
         : "현재 역할로는 업데이트를 저장할 수 없습니다.",
+    );
+  }
+  if (!isNewContentWriteUnlocked(detail.block)) {
+    throw new Error(
+      "신규 컨텐츠 요청이 아직 승인되지 않았습니다. 컨설턴트/ESG 승인 후 작성할 수 있습니다.",
     );
   }
 
@@ -165,6 +171,11 @@ function saveAnnualUpdateDraftPilot(input: UpdateDraftInput) {
       user.role === "CONTRIBUTOR"
         ? "자기 부서에 지정된 컨텐츠만 수정할 수 있습니다."
         : "현재 역할로는 업데이트를 저장할 수 없습니다.",
+    );
+  }
+  if (!isNewContentWriteUnlocked(block)) {
+    throw new Error(
+      "신규 컨텐츠 요청이 아직 승인되지 않았습니다. 컨설턴트/ESG 승인 후 작성할 수 있습니다.",
     );
   }
   const reportingYear = store.active_project_id

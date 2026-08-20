@@ -13,6 +13,7 @@ export const ROLE_GUIDE: Record<
     can: [
       "고객사/프로젝트 생성·삭제",
       "컨텐츠 작성 부서 지정",
+      "신규 컨텐츠 요청 승인/반려",
       "전체 컨텐츠 조회·수정 지원",
       "리뷰 승인/반려",
       "Evidence 삭제",
@@ -24,6 +25,7 @@ export const ROLE_GUIDE: Record<
       "해당 고객사 ESG팀 책임/담당자. 작성 부서를 지정하고, 제출된 컨텐츠를 검토·승인합니다.",
     can: [
       "컨텐츠 작성 부서 지정",
+      "신규 컨텐츠 요청 승인/반려",
       "리뷰 시작/승인/수정요청",
       "전체 컨텐츠 조회",
       "컨텐츠 본문 직접 수정 불가",
@@ -35,6 +37,7 @@ export const ROLE_GUIDE: Record<
       "컨텐츠를 작성하는 현업 부서. 자기 부서에 지정된 컨텐츠만 수정·제출할 수 있습니다.",
     can: [
       "지정된 부서 컨텐츠만 조회·수정",
+      "신규 컨텐츠 요청 (승인 후 작성)",
       "Annual Update 저장/제출",
       "Evidence 업로드·연결",
       "리뷰 액션 불가",
@@ -75,6 +78,16 @@ export function canDeleteProject(role: UserRole) {
 }
 
 export function canAssignOwnerDepartment(role: UserRole) {
+  return role === "ADMIN" || role === "REVIEWER";
+}
+
+/** 현업·컨설턴트·ESG 모두 신규 컨텐츠 요청 가능 (현업은 자기 부서). */
+export function canCreateNewContentRequest(role: UserRole) {
+  return role === "ADMIN" || role === "REVIEWER" || role === "CONTRIBUTOR";
+}
+
+/** 신규 요청 승인/반려는 컨설턴트·ESG만. */
+export function canApproveNewContentRequest(role: UserRole) {
   return role === "ADMIN" || role === "REVIEWER";
 }
 
